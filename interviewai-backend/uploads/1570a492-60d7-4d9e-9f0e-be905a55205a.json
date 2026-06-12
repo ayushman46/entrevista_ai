@@ -1,0 +1,51 @@
+{
+  "resume_id": "1570a492-60d7-4d9e-9f0e-be905a55205a",
+  "resume_data": {
+    "name": "John Doe",
+    "email": null,
+    "phone": null,
+    "skills": [
+      "Software Development",
+      "Web Development"
+    ],
+    "technologies": [
+      "Python",
+      "React",
+      "FastAPI",
+      "SQL",
+      "Docker"
+    ],
+    "projects": [],
+    "experience": [
+      {
+        "company": null,
+        "role": "Senior Software Engineer",
+        "duration": "5 years",
+        "key_points": [
+          "Building scalable web applications"
+        ]
+      }
+    ],
+    "education": [],
+    "certifications": [],
+    "achievements": [],
+    "summary": "John Doe is a Senior Software Engineer with 5 years of experience in building scalable web applications, skilled in Python, React, FastAPI, SQL, and Docker. He has a strong background in software development and web development. John is a skilled engineer with expertise in multiple technologies."
+  },
+  "interview_plan": {
+    "topics": [
+      "Introduction to Programming",
+      "Web Development",
+      "Software Development",
+      "Database Management",
+      "Containerization"
+    ],
+    "difficulty": "medium",
+    "estimated_questions": 12,
+    "focus_areas": [
+      "Technical Skills",
+      "Problem-Solving"
+    ],
+    "opening_question_topic": "Introduction to Programming"
+  },
+  "filename": "resume.pdf"
+}

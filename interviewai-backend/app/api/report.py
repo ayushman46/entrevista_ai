@@ -1,3 +1,4 @@
+from typing import Dict, Any, List
 from fastapi import APIRouter, HTTPException
 from app.services.session_manager import session_manager
 
@@ -14,14 +15,18 @@ async def get_analytics(interview_id: str):
     if not evaluations:
         return {"message": "No evaluations yet"}
 
-    topic_performance = {}
+    topic_performance: Dict[str, Dict[str, Any]] = {}
     for i, q in enumerate(session.get("questions", [])):
         topic = q.get("topic", "General")
         if i < len(evaluations):
             ev = evaluations[i]
             if topic not in topic_performance:
                 topic_performance[topic] = {"scores": [], "count": 0}
-            topic_performance[topic]["scores"].append(ev.get("technical_score", 0))
+            
+            # Explicitly type cast for mypy
+            scores_list: List[int] = topic_performance[topic]["scores"]
+            scores_list.append(ev.get("technical_score", 0))
+            
             topic_performance[topic]["count"] += 1
 
     analytics = {

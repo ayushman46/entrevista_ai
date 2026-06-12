@@ -5,7 +5,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Flowable
 )
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from app.config import settings
@@ -26,7 +26,7 @@ def generate_pdf_report(interview_id: str, report_data: dict, session: dict) -> 
     )
 
     styles = getSampleStyleSheet()
-    story = []
+    story: list[Flowable] = []
 
     # Title
     title_style = ParagraphStyle(

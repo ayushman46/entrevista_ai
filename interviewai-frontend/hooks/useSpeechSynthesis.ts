@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface UseSpeechSynthesisReturn {
   speak: (text: string, onEnd?: () => void) => void;
@@ -10,37 +10,64 @@ interface UseSpeechSynthesisReturn {
 
 export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
 
   const isSupported =
     typeof window !== "undefined" && "speechSynthesis" in window;
 
-  const speak = useCallback((text: string, onEnd?: () => void) => {
+  useEffect(() => {
     if (!isSupported) return;
+    
+    const loadVoices = () => {
+      if (window.speechSynthesis.getVoices().length > 0) {
+        setVoicesLoaded(true);
+      }
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, [isSupported]);
+
+  const speak = useCallback((text: string, onEnd?: () => void) => {
+    if (!isSupported) {
+      onEnd?.();
+      return;
+    }
+    
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    // Use a small timeout to ensure the browser's audio context is ready
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
-    // Prefer a natural English voice
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(
-      (v) => v.lang === "en-US" && v.name.includes("Google")
-    ) || voices.find((v) => v.lang.startsWith("en"));
-    if (preferred) utterance.voice = preferred;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(
+        (v) => v.lang === "en-US" && v.name.includes("Google")
+      ) || voices.find((v) => v.lang.startsWith("en"));
+      
+      if (preferred) {
+        utterance.voice = preferred;
+      }
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      onEnd?.();
-    };
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      onEnd?.();
-    };
+      utterance.onstart = () => setIsSpeaking(true);
+      
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        onEnd?.();
+      };
+      
+      utterance.onerror = (e) => {
+        console.error("Speech Synthesis Error (Likely Autoplay blocked):", e);
+        setIsSpeaking(false);
+        // Force the phase to progress even if audio fails, so the app doesn't break
+        onEnd?.();
+      };
 
-    window.speechSynthesis.speak(utterance);
+      window.speechSynthesis.speak(utterance);
+    }, 50);
   }, [isSupported]);
 
   const cancel = useCallback(() => {

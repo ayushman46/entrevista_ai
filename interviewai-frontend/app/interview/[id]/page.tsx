@@ -1,11 +1,13 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/services/api";
 import { useInterviewStore } from "@/store/interviewStore";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import type { EvaluationResult } from "@/types/interview";
+
+type Phase = "ready" | "speaking" | "recording" | "reviewing" | "evaluating" | "feedback";
 
 export default function InterviewPage() {
   const params = useParams();
@@ -21,29 +23,43 @@ export default function InterviewPage() {
     useSpeechRecognition();
   const { speak, isSpeaking, cancel: cancelSpeech } = useSpeechSynthesis();
 
-  const [phase, setPhase] = useState<"speaking" | "recording" | "reviewing" | "evaluating" | "feedback">("speaking");
+  const [phase, setPhase] = useState<Phase>("ready");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const currentQ = questions[currentQuestionIndex];
-  const hasSpoken = useRef(false);
+  
+  // Track if we have already auto-played the very first question
+  const hasAutoPlayedFirstQ = useRef(false);
 
+  // Auto-play the FIRST question ONLY (browsers often allow this if the user just clicked "Start Interview" on the previous page)
   useEffect(() => {
-    if (currentQ && !hasSpoken.current) {
-      hasSpoken.current = true;
+    if (currentQ && currentQuestionIndex === 0 && !hasAutoPlayedFirstQ.current) {
+      hasAutoPlayedFirstQ.current = true;
+      setPhase("speaking");
       speak(currentQ.question, () => setPhase("recording"));
     }
-    return () => cancelSpeech();
-  }, [currentQ, speak, cancelSpeech]);
+  }, [currentQ, currentQuestionIndex, speak]);
 
-  const handleStartRecording = () => {
+  // Cleanup audio if unmounted
+  useEffect(() => {
+    return () => cancelSpeech();
+  }, [cancelSpeech]);
+
+  const handlePlayQuestion = useCallback(() => {
+    if (!currentQ) return;
+    setPhase("speaking");
+    speak(currentQ.question, () => setPhase("recording"));
+  }, [currentQ, speak]);
+
+  const handleStartRecording = useCallback(() => {
     cancelSpeech();
     startListening();
-  };
+  }, [cancelSpeech, startListening]);
 
-  const handleStopRecording = () => {
+  const handleStopRecording = useCallback(() => {
     stopListening();
     setPhase("reviewing");
-  };
+  }, [stopListening]);
 
   const handleSubmitAnswer = async () => {
     const finalTranscript = transcript.trim();
@@ -64,9 +80,14 @@ export default function InterviewPage() {
       if (res.interview_complete) {
         setPhase("feedback");
         setTimeout(async () => {
-          const report = await api.completeInterview(interviewId);
-          setFinalReport(report);
-          router.push(`/report/${interviewId}`);
+          try {
+            const report = await api.completeInterview(interviewId);
+            setFinalReport(report);
+            router.push(`/report/${interviewId}`);
+          } catch (err) {
+            setError("Failed to generate final report. Please refresh.");
+            setPhase("reviewing"); // Allow retry
+          }
         }, 3000);
       } else {
         setPhase("feedback");
@@ -81,13 +102,16 @@ export default function InterviewPage() {
   };
 
   const handleNextQuestion = () => {
-    hasSpoken.current = false;
     resetTranscript();
     setEvaluation(null);
-    setPhase("speaking");
+    setPhase("ready");
   };
 
   const progress = Math.round((currentQuestionIndex / totalPlanned) * 100);
+
+  if (!currentQ) {
+    return <div className="p-20 text-center text-slate-500 animate-pulse">Initializing Interview Context...</div>;
+  }
 
   return (
     <div className="max-w-2xl mx-auto pb-20">
@@ -95,7 +119,7 @@ export default function InterviewPage() {
       <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
         <div>
           <span className="text-slate-500 font-medium text-sm">Question {currentQuestionIndex + 1} / {totalPlanned}</span>
-          {currentQ && <span className="ml-3 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">{currentQ.topic}</span>}
+          <span className="ml-3 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">{currentQ.topic}</span>
         </div>
         <div className="text-sm font-medium text-slate-500 capitalize">{role.replace("_", " ")}</div>
       </div>
@@ -109,13 +133,23 @@ export default function InterviewPage() {
         <div className="flex items-start gap-4 mb-4">
           <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">AI</div>
           <div className="pt-2">
-            <p className="text-slate-900 text-xl font-medium leading-relaxed tracking-tight">{currentQ?.question || "Loading question..."}</p>
+            <p className="text-slate-900 text-xl font-medium leading-relaxed tracking-tight">{currentQ.question}</p>
           </div>
         </div>
+        
+        {phase === "ready" && currentQuestionIndex > 0 && (
+          <div className="ml-14 animate-in fade-in">
+            <button onClick={handlePlayQuestion} className="px-6 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              Listen to Question
+            </button>
+          </div>
+        )}
+
         {isSpeaking && (
-          <div className="ml-14 flex items-center gap-3 text-slate-400 text-sm">
+          <div className="ml-14 flex items-center gap-3 text-slate-400 text-sm font-medium">
             <div className="flex gap-1">
-              {[0, 0.1, 0.2].map(d => <span key={d} className="w-1 h-3 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: `${d}s` }} />)}
+              {[0, 0.1, 0.2].map(d => <span key={d} className="w-1.5 h-4 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: `${d}s` }} />)}
             </div>
             Interviewer is speaking...
           </div>
@@ -123,7 +157,7 @@ export default function InterviewPage() {
       </div>
 
       {/* Interaction Area */}
-      {phase !== "speaking" && phase !== "evaluating" && !evaluation && (
+      {phase !== "ready" && phase !== "speaking" && phase !== "evaluating" && !evaluation && (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           {/* Voice Input Section */}
@@ -142,7 +176,7 @@ export default function InterviewPage() {
             <div className="mt-4 flex gap-3">
               {!isListening ? (
                 <button onClick={handleStartRecording} className="btn-primary">
-                  {transcript ? "Re-record Voice" : "Start Speaking"}
+                  {transcript ? "Resume Speaking" : "Start Speaking"}
                 </button>
               ) : (
                 <button onClick={handleStopRecording} className="btn-primary !bg-red-600 hover:!bg-red-700">
@@ -151,7 +185,7 @@ export default function InterviewPage() {
               )}
             </div>
             {(speechError || !isSupported) && (
-              <p className="mt-3 text-xs text-red-500 font-medium">{!isSupported ? "Voice recognition not supported in this browser." : speechError}</p>
+              <p className="mt-3 text-sm text-red-500 font-medium p-3 bg-red-50 rounded-lg border border-red-100">{!isSupported ? "Voice recognition not supported in this browser. Please use Chrome." : speechError}</p>
             )}
           </section>
 

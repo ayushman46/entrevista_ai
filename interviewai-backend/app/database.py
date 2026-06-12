@@ -1,6 +1,6 @@
 import os
-from sqlalchemy import create_engine, Column, String, Text
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy import create_engine, String, Text
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from app.config import settings
 
 # Ensure directory exists
@@ -17,17 +17,22 @@ engine = create_engine(
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 # Base class for models
-Base = declarative_base()
+class Base(DeclarativeBase):
+    pass
+
 
 class SessionRecord(Base):
     __tablename__ = "sessions"
-    
-    interview_id = Column(String, primary_key=True, index=True)
-    data = Column(Text, nullable=False)
 
-# Automatically create tables (production setups might use Alembic, but this handles initial DB creation perfectly)
+    interview_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
+    data: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+# Automatically create tables
 Base.metadata.create_all(bind=engine)
+
 
 def get_db():
     db = SessionLocal()

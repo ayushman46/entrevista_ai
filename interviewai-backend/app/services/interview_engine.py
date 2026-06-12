@@ -24,10 +24,14 @@ async def start_interview(
     """Generate the first question and initialize interview."""
     resume_summary = resume_data.get("summary", "")
 
+    session = session_manager.get_session(interview_id)
+    if not session:
+        raise ValueError(f"Session {interview_id} not found")
+
     # Update session with resume summary
     session_manager.update_session(interview_id, {
         "interview_context": {
-            **session_manager.get_session(interview_id)["interview_context"],
+            **session["interview_context"],
             "resume_summary": resume_summary,
         }
     })
@@ -49,6 +53,18 @@ async def start_interview(
 
     clean = _clean_json(response)
     question_data = json.loads(clean)
+    
+    # Store the first question in the session's questions array so it can be answered
+    session_manager.update_session(interview_id, {
+        "questions": [{
+            "index": 0,
+            "question": question_data.get("question", ""),
+            "answer": "",
+            "topic": question_data.get("topic", ""),
+            "timestamp": ""
+        }]
+    })
+    
     return question_data
 
 
@@ -59,9 +75,12 @@ async def evaluate_answer(
     expected_concepts: list,
     topic: str,
     role: str,
-) -> dict:
+) -> tuple[dict, bool]:
     """Evaluate a candidate's answer and generate next question."""
     session = session_manager.get_session(interview_id)
+    if not session:
+        raise ValueError(f"Session {interview_id} not found")
+
     ctx = session["interview_context"]
     current_difficulty = ctx.get("current_difficulty", "medium")
 
@@ -95,6 +114,9 @@ async def evaluate_answer(
 
     # Check if follow-up or new topic
     updated_session = session_manager.get_session(interview_id)
+    if not updated_session:
+        raise ValueError(f"Session {interview_id} not found")
+
     question_count = len(updated_session["questions"])
     is_complete = question_count >= MAX_QUESTIONS
 
@@ -111,6 +133,9 @@ async def evaluate_answer(
 async def get_next_question(interview_id: str, role: str) -> dict:
     """Generate the next adaptive question based on current interview context."""
     session = session_manager.get_session(interview_id)
+    if not session:
+        raise ValueError(f"Session {interview_id} not found")
+
     ctx = session["interview_context"]
 
     prompt = get_next_question_prompt(ctx)

@@ -2,9 +2,9 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 class ResumeData(BaseModel):
-    name: str = ""
-    email: str = ""
-    phone: str = ""
+    name: Optional[str] = ""
+    email: Optional[str] = ""
+    phone: Optional[str] = ""
     skills: List[str] = []
     technologies: List[str] = []
     projects: List[dict] = []
@@ -12,7 +12,7 @@ class ResumeData(BaseModel):
     education: List[dict] = []
     certifications: List[str] = []
     achievements: List[str] = []
-    summary: str = ""
+    summary: Optional[str] = ""
 
 class ResumeUploadResponse(BaseModel):
     resume_id: str

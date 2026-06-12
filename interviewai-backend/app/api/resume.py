@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.config import settings
 from app.services.resume_parser import parse_resume, generate_interview_plan
-from app.schemas.resume import ResumeUploadResponse
+from app.schemas.resume import ResumeUploadResponse, ResumeData
 
 router = APIRouter()
 MAX_SIZE = settings.MAX_FILE_SIZE_MB * 1024 * 1024
@@ -13,7 +13,8 @@ MAX_SIZE = settings.MAX_FILE_SIZE_MB * 1024 * 1024
 @router.post("/upload", response_model=ResumeUploadResponse)
 async def upload_resume(file: UploadFile = File(...)):
     # Validate file type
-    if not file.filename.lower().endswith((".pdf", ".docx", ".doc")):
+    filename = file.filename or "unknown"
+    if not filename.lower().endswith((".pdf", ".docx", ".doc")):
         raise HTTPException(400, "Only PDF and DOCX files are supported")
 
     # Read and validate size
@@ -23,10 +24,11 @@ async def upload_resume(file: UploadFile = File(...)):
 
     try:
         # Parse resume with LLM
-        resume_data = await parse_resume(content, file.filename)
+        resume_data_dict = await parse_resume(content, filename)
+        resume_data = ResumeData(**resume_data_dict)
 
         # Generate interview topics
-        plan = await generate_interview_plan(resume_data, "general")
+        plan = await generate_interview_plan(resume_data_dict, "general")
 
         # Save resume data
         resume_id = str(uuid.uuid4())
@@ -34,9 +36,9 @@ async def upload_resume(file: UploadFile = File(...)):
         with open(resume_path, "w") as f:
             json.dump({
                 "resume_id": resume_id,
-                "resume_data": resume_data,
+                "resume_data": resume_data_dict,
                 "interview_plan": plan,
-                "filename": file.filename,
+                "filename": filename,
             }, f, indent=2)
 
         return ResumeUploadResponse(

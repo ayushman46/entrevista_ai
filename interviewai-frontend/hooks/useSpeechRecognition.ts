@@ -17,74 +17,11 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
   const [error, setError] = useState<string | null>(null);
   
   const recognitionRef = useRef<any>(null);
-  const isManuallyStoppedRef = useRef(true);
   const finalTranscriptRef = useRef("");
-  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isSupported =
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
-
-  const handleResult = useCallback((event: any) => {
-    let interimTranscript = "";
-    
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      if (event.results[i].isFinal) {
-        finalTranscriptRef.current += event.results[i][0].transcript + " ";
-      } else {
-        interimTranscript += event.results[i][0].transcript;
-      }
-    }
-    
-    setTranscript((finalTranscriptRef.current + interimTranscript).trim());
-  }, []);
-
-  const startRecognition = useCallback(() => {
-    if (!recognitionRef.current || isManuallyStoppedRef.current) return;
-    
-    try {
-      recognitionRef.current.start();
-    } catch (e) {
-      // Already running or busy
-    }
-  }, []);
-
-  const handleEnd = useCallback(() => {
-    // If not manually stopped, attempt to restart after a brief delay
-    // This handles 'network' disconnects or silent timeouts
-    if (!isManuallyStoppedRef.current) {
-      if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = setTimeout(() => {
-        startRecognition();
-      }, 300);
-    } else {
-      setIsListening(false);
-    }
-  }, [startRecognition]);
-
-  const handleError = useCallback((event: any) => {
-    // Log for production debugging
-    console.error("Speech Recognition Error Event:", event.error);
-    
-    const errorType = event.error;
-
-    if (errorType === "not-allowed") {
-      setError("Microphone permission denied. Please allow mic access in your browser.");
-      isManuallyStoppedRef.current = true;
-      setIsListening(false);
-    } else if (errorType === "network") {
-      // Network errors are common in unstable connections. 
-      // We don't stop; we let handleEnd attempt a restart.
-      setError("Network issues detected. Attempting to reconnect voice...");
-    } else if (errorType === "no-speech") {
-      // This happens if the user stays silent. 
-      // We don't show an error to the user, just let it cycle.
-    } else if (errorType === "aborted") {
-      // System or manual abort, usually harmless.
-    } else {
-      setError(`Voice error: ${errorType}. Still listening...`);
-    }
-  }, []);
 
   useEffect(() => {
     if (!isSupported) return;
@@ -93,7 +30,8 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognitionAPI();
 
-    recognition.continuous = true;
+    // Standard continuous mode. Let the browser manage the socket naturally.
+    recognition.continuous = true; 
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
@@ -101,37 +39,74 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
       setIsListening(true);
       setError(null);
     };
-    recognition.onresult = handleResult;
-    recognition.onerror = handleError;
-    recognition.onend = handleEnd;
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      let final = "";
+      
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) {
+          final += event.results[i][0].transcript + " ";
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      
+      if (final) {
+        finalTranscriptRef.current += final;
+      }
+      
+      setTranscript((finalTranscriptRef.current + interim).trim());
+    };
+
+    recognition.onerror = (event: any) => {
+      console.warn("Speech API Error:", event.error);
+      
+      if (event.error === "not-allowed") {
+        setError("Microphone access denied. Please allow it in your browser settings.");
+      } else if (event.error === "network") {
+        setError("Network connection lost. Please click 'Start Speaking' to reconnect.");
+      } else if (event.error !== "no-speech") {
+        setError(`Speech error: ${event.error}`);
+      }
+      // Note: we do not automatically restart on error. We let the user click the button again.
+      // This prevents the browser from permanently banning the mic due to rapid programmatic restarts.
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
 
     recognitionRef.current = recognition;
 
     return () => {
-      isManuallyStoppedRef.current = true;
-      if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
-      if (recognitionRef.current) recognitionRef.current.abort();
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
     };
-  }, [isSupported, handleResult, handleError, handleEnd]);
+  }, [isSupported]);
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current) return;
     
     setError(null);
-    setTranscript("");
-    finalTranscriptRef.current = "";
-    isManuallyStoppedRef.current = false;
     
-    startRecognition();
-  }, [startRecognition]);
+    // Only clear transcript if we are starting fresh (not resuming from a network drop)
+    if (!finalTranscriptRef.current && !transcript) {
+       setTranscript("");
+    }
+    
+    try {
+      recognitionRef.current.start();
+    } catch (e) {
+      console.error("Could not start mic:", e);
+    }
+  }, [transcript]);
 
   const stopListening = useCallback(() => {
-    isManuallyStoppedRef.current = true;
-    if (restartTimeoutRef.current) clearTimeout(restartTimeoutRef.current);
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-    setIsListening(false);
   }, []);
 
   const resetTranscript = useCallback(() => {

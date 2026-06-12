@@ -106,10 +106,11 @@ class SessionManager:
 
     def close_session(self, interview_id: str) -> dict:
         session = self.get_session(interview_id)
-        if session:
-            session["status"] = "completed"
-            session["updated_at"] = datetime.utcnow().isoformat()
-            self._save(interview_id, session)
+        if not session:
+            raise ValueError(f"Session {interview_id} not found")
+        session["status"] = "completed"
+        session["updated_at"] = datetime.utcnow().isoformat()
+        self._save(interview_id, session)
         return session
 
     def _save(self, interview_id: str, session: dict):

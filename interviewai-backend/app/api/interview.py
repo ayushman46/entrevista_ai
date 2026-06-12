@@ -96,11 +96,15 @@ async def submit_answer(request: AnswerSubmitRequest):
         feedback=evaluation.get("feedback", ""),
     )
 
+    updated_session = session_manager.get_session(request.interview_id)
+    if not updated_session:
+        raise HTTPException(404, "Interview session not found after evaluation")
+
     return AnswerResponse(
         evaluation=eval_result,
         interview_complete=is_complete,
         next_question=evaluation.get("next_question") if not is_complete else None,
-        question_index=len(session_manager.get_session(request.interview_id)["questions"]) - 1,
+        question_index=len(updated_session["questions"]) - 1,
     )
 
 
@@ -123,6 +127,8 @@ async def complete_interview(interview_id: str):
 
     # Re-fetch closed session
     closed_session = session_manager.get_session(interview_id)
+    if not closed_session:
+        raise HTTPException(404, "Interview not found during closing")
 
     # Generate PDF
     pdf_filename = generate_pdf_report(
@@ -147,14 +153,16 @@ async def resume_interview(interview_id: str):
         raise HTTPException(400, "Cannot resume a completed interview")
 
     session_manager.update_session(interview_id, {"status": "active"})
-    session = session_manager.get_session(interview_id)
+    updated_session = session_manager.get_session(interview_id)
+    if not updated_session:
+        raise HTTPException(404, "Interview not found after resuming")
 
     return {
         "interview_id": interview_id,
         "status": "active",
-        "current_question_index": session["current_question_index"],
-        "questions_asked": len(session["questions"]),
-        "interview_context": session["interview_context"],
+        "current_question_index": updated_session["current_question_index"],
+        "questions_asked": len(updated_session["questions"]),
+        "interview_context": updated_session["interview_context"],
     }
 
 
