@@ -36,38 +36,35 @@ export function useSpeechSynthesis(): UseSpeechSynthesisReturn {
     
     window.speechSynthesis.cancel();
 
-    // Use a small timeout to ensure the browser's audio context is ready
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.95;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find(
-        (v) => v.lang === "en-US" && v.name.includes("Google")
-      ) || voices.find((v) => v.lang.startsWith("en"));
-      
-      if (preferred) {
-        utterance.voice = preferred;
-      }
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(
+      (v) => v.lang === "en-US" && v.name.includes("Google")
+    ) || voices.find((v) => v.lang.startsWith("en"));
+    
+    if (preferred) {
+      utterance.voice = preferred;
+    }
 
-      utterance.onstart = () => setIsSpeaking(true);
-      
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        onEnd?.();
-      };
-      
-      utterance.onerror = (e) => {
-        console.error("Speech Synthesis Error (Likely Autoplay blocked):", e);
-        setIsSpeaking(false);
-        // Force the phase to progress even if audio fails, so the app doesn't break
-        onEnd?.();
-      };
+    utterance.onstart = () => setIsSpeaking(true);
+    
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      onEnd?.();
+    };
+    
+    utterance.onerror = (e) => {
+      console.error("Speech Synthesis Error:", e);
+      setIsSpeaking(false);
+      onEnd?.();
+    };
 
-      window.speechSynthesis.speak(utterance);
-    }, 50);
+    // Call synchronously inside the click handler to satisfy browser security
+    window.speechSynthesis.speak(utterance);
   }, [isSupported]);
 
   const cancel = useCallback(() => {

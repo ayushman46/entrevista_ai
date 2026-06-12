@@ -27,18 +27,6 @@ export default function InterviewPage() {
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const currentQ = questions[currentQuestionIndex];
-  
-  // Track if we have already auto-played the very first question
-  const hasAutoPlayedFirstQ = useRef(false);
-
-  // Auto-play the FIRST question ONLY (browsers often allow this if the user just clicked "Start Interview" on the previous page)
-  useEffect(() => {
-    if (currentQ && currentQuestionIndex === 0 && !hasAutoPlayedFirstQ.current) {
-      hasAutoPlayedFirstQ.current = true;
-      setPhase("speaking");
-      speak(currentQ.question, () => setPhase("recording"));
-    }
-  }, [currentQ, currentQuestionIndex, speak]);
 
   // Cleanup audio if unmounted
   useEffect(() => {
@@ -137,11 +125,11 @@ export default function InterviewPage() {
           </div>
         </div>
         
-        {phase === "ready" && currentQuestionIndex > 0 && (
+        {phase === "ready" && (
           <div className="ml-14 animate-in fade-in">
             <button onClick={handlePlayQuestion} className="px-6 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              Listen to Question
+              {currentQuestionIndex === 0 ? "Start Interview (Play Audio)" : "Listen to Question"}
             </button>
           </div>
         )}
