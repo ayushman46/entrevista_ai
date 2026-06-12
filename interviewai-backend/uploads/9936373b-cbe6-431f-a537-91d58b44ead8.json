@@ -1,0 +1,140 @@
+{
+  "resume_id": "9936373b-cbe6-431f-a537-91d58b44ead8",
+  "resume_data": {
+    "name": "Ayushman Chakraborty",
+    "email": "ayushman.mitblr@gmail.com",
+    "phone": "+91 99165 26200",
+    "skills": [
+      "Machine Learning",
+      "Deep Learning",
+      "Probability",
+      "Statistics",
+      "Linear Algebra",
+      "Hypothesis Testing",
+      "Optimization",
+      "Gradient Descent",
+      "Regression",
+      "Classification",
+      "Clustering",
+      "Computer Vision",
+      "Time Series Forecasting",
+      "NLP",
+      "Retrieval Augmented Generation",
+      "Recommendation Systems",
+      "Big Data"
+    ],
+    "technologies": [
+      "Python",
+      "scikit-learn",
+      "PyTorch",
+      "TensorFlow",
+      "XGBoost",
+      "pandas",
+      "NumPy",
+      "SQL",
+      "C++",
+      "Git",
+      "Docker",
+      "FastAPI",
+      "Jupyter",
+      "PySpark",
+      "Hadoop",
+      "ALS",
+      "K-Means",
+      "React",
+      "Express.js",
+      "PostgreSQL",
+      "Supabase",
+      "Groq API"
+    ],
+    "projects": [
+      {
+        "name": "Biomechanics Analysis Pipeline for Cricket Bowling",
+        "description": "Built a computer vision pipeline using YOLOv8 for object detection and SMPL for 3D body mesh estimation",
+        "tech_stack": [
+          "Python",
+          "YOLOv8",
+          "SMPL",
+          "SPIN",
+          "OpenCV",
+          "NumPy"
+        ]
+      },
+      {
+        "name": "Multimodal Document Intelligence Engine",
+        "description": "Designed a hybrid retrieval pipeline combining dense vector search with sparse BM25 retrieval and GPT-4o based reasoning",
+        "tech_stack": [
+          "Python",
+          "LangChain",
+          "FAISS",
+          "BM25",
+          "GPT-4o",
+          "FastAPI"
+        ]
+      },
+      {
+        "name": "StrideCircle: Time Series Performance Analytics Platform",
+        "description": "Built a full stack platform that ingests athlete telemetry via Strava API and applies time series analysis",
+        "tech_stack": [
+          "React",
+          "Express.js",
+          "PostgreSQL",
+          "Supabase",
+          "Groq API"
+        ]
+      },
+      {
+        "name": "Big Data Recommendation and Anomaly Detection Systems",
+        "description": "Implemented an Alternating Least Squares based collaborative filtering recommendation system and a K-Means clustering based anomaly detection pipeline",
+        "tech_stack": [
+          "PySpark",
+          "Hadoop",
+          "Apache Spark",
+          "ALS",
+          "K-Means"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "company": "Wipro Limited",
+        "role": "Software Engineering and Generative AI Intern",
+        "duration": "Jun 2025 - Jul 2025",
+        "key_points": [
+          "Engineered a modular AI verification pipeline applying statistical hypothesis testing and systematic evaluation",
+          "Built and evaluated a multimodal model pipeline processing data from 30 plus internal sources"
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": "B.Tech Computer Science",
+        "institution": "MIT Bangalore",
+        "year": "2027"
+      }
+    ],
+    "certifications": [],
+    "achievements": [
+      "Top 5 of 50 Teams in Hackverse Hackathon organized by IBM SkillsBuild and AWS",
+      "Solved 100 plus problems on LeetCode in Python across Data Structures and Algorithms"
+    ],
+    "summary": "Ayushman Chakraborty is a final year B.Tech Computer Science student at MIT Bangalore with a strong foundation in Machine Learning, Deep Learning, and Data Science. He has built and evaluated various ML and deep learning systems, including computer vision pipelines and time series forecasting models. He also has production internship experience at Wipro, where he applied statistical hypothesis testing and model evaluation at scale."
+  },
+  "interview_plan": {
+    "topics": [
+      "Machine Learning",
+      "Deep Learning",
+      "Probability and Statistics",
+      "Computer Vision",
+      "NLP"
+    ],
+    "difficulty": "medium",
+    "estimated_questions": 12,
+    "focus_areas": [
+      "Technical Skills",
+      "Problem-Solving"
+    ],
+    "opening_question_topic": "Machine Learning"
+  },
+  "filename": "Ayushman_Amazon_MLSS.pdf"
+}
