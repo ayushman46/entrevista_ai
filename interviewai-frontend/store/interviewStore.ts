@@ -24,8 +24,8 @@ interface InterviewStore {
   // Actions
   setResume: (id: string, data: ResumeData, topics: string[]) => void;
   setRole: (role: RoleType) => void;
-  startInterview: (id: string, firstQuestion: string, topic: string, total: number) => void;
-  addQuestion: (question: string, topic: string, expectedConcepts: string[]) => void;
+  startInterview: (id: string, firstQuestion: string, topic: string, total: number, audioUrl?: string) => void;
+  addQuestion: (question: string, topic: string, expectedConcepts: string[], audioUrl?: string) => void;
   recordAnswer: (index: number, answer: string) => void;
   setStatus: (status: InterviewStatus) => void;
   setFinalReport: (report: FinalReport) => void;
@@ -52,17 +52,17 @@ export const useInterviewStore = create<InterviewStore>()(
       setResume: (id, data, topics) =>
         set({ resumeId: id, resumeData: data, interviewTopics: topics }),
       setRole: (role) => set({ role }),
-      startInterview: (id, firstQuestion, topic, total) =>
+      startInterview: (id, firstQuestion, topic, total, audioUrl) =>
         set({
           interviewId: id,
           status: "active",
           totalPlanned: total,
-          questions: [{ question: firstQuestion, topic }],
+          questions: [{ question: firstQuestion, topic, audioUrl }],
           currentQuestionIndex: 0,
         }),
-      addQuestion: (question, topic, expectedConcepts) =>
+      addQuestion: (question, topic, expectedConcepts, audioUrl) =>
         set((state) => ({
-          questions: [...state.questions, { question, topic, expectedConcepts }],
+          questions: [...state.questions, { question, topic, expectedConcepts, audioUrl }],
         })),
       recordAnswer: (index, answer) =>
         set((state) => ({

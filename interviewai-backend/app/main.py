@@ -22,8 +22,13 @@ app.include_router(resume.router, prefix="/resume", tags=["Resume"])
 app.include_router(interview.router, prefix="/interview", tags=["Interview"])
 app.include_router(report.router, prefix="/report", tags=["Report"])
 
-# Serve generated reports as static files
+# Serve generated reports and audio as static files
 app.mount("/reports", StaticFiles(directory=settings.REPORT_DIR), name="reports")
+
+import os
+AUDIO_DIR = os.path.join(settings.UPLOAD_DIR, "audio")
+os.makedirs(AUDIO_DIR, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 
 @app.get("/health")
 async def health():

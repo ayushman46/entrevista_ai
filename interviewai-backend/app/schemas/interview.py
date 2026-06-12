@@ -56,9 +56,11 @@ class InterviewStartResponse(BaseModel):
     topic: str
     difficulty: str
     total_planned_questions: int
+    audio_url: Optional[str] = None
 
 class AnswerResponse(BaseModel):
     evaluation: EvaluationResult
     interview_complete: bool
     next_question: Optional[str]
     question_index: int
+    audio_url: Optional[str] = None

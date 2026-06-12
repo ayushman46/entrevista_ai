@@ -1,10 +1,10 @@
 "use client";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/services/api";
 import { useInterviewStore } from "@/store/interviewStore";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { useServerAudio } from "@/hooks/useServerAudio";
 import type { EvaluationResult } from "@/types/interview";
 
 type Phase = "ready" | "speaking" | "recording" | "reviewing" | "evaluating" | "feedback";
@@ -19,9 +19,8 @@ export default function InterviewPage() {
     recordAnswer, addQuestion, setFinalReport,
   } = useInterviewStore();
 
-  const { transcript, isListening, startListening, stopListening, resetTranscript, isSupported, error: speechError } =
-    useSpeechRecognition();
-  const { speak, isSpeaking, cancel: cancelSpeech } = useSpeechSynthesis();
+  const { isRecording, audioBlob, startRecording, stopRecording, resetAudio } = useAudioRecorder();
+  const { playAudio, stopAudio, isPlaying } = useServerAudio();
 
   const [phase, setPhase] = useState<Phase>("ready");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
@@ -30,29 +29,31 @@ export default function InterviewPage() {
 
   // Cleanup audio if unmounted
   useEffect(() => {
-    return () => cancelSpeech();
-  }, [cancelSpeech]);
+    return () => stopAudio();
+  }, [stopAudio]);
 
   const handlePlayQuestion = useCallback(() => {
-    if (!currentQ) return;
+    if (!currentQ || !currentQ.audioUrl) {
+      // Fallback if no audio URL is available (e.g., TTS failed on server)
+      setPhase("recording");
+      return;
+    }
     setPhase("speaking");
-    speak(currentQ.question, () => setPhase("recording"));
-  }, [currentQ, speak]);
+    playAudio(currentQ.audioUrl, () => setPhase("recording"));
+  }, [currentQ, playAudio]);
 
   const handleStartRecording = useCallback(() => {
-    cancelSpeech();
-    startListening();
-  }, [cancelSpeech, startListening]);
+    stopAudio();
+    startRecording();
+  }, [stopAudio, startRecording]);
 
   const handleStopRecording = useCallback(() => {
-    stopListening();
+    stopRecording();
     setPhase("reviewing");
-  }, [stopListening]);
+  }, [stopRecording]);
 
   const handleSubmitAnswer = async () => {
-    const finalTranscript = transcript.trim();
-    
-    if (!finalTranscript) {
+    if (!audioBlob) {
       setError("Please provide a verbal answer before submitting.");
       return;
     }
@@ -61,8 +62,13 @@ export default function InterviewPage() {
     setPhase("evaluating");
 
     try {
-      recordAnswer(currentQuestionIndex, finalTranscript);
-      const res = await api.submitAnswer(interviewId, currentQuestionIndex, finalTranscript);
+      // Send raw audio blob to the backend for processing
+      const res = await api.submitAnswerAudio(interviewId, currentQuestionIndex, audioBlob);
+      
+      // Save transcript (returned in feedback or evaluation for now) to store
+      // Since Groq transcribes it on the backend, we record "Audio Submitted" in the store for UI purposes
+      recordAnswer(currentQuestionIndex, "Audio Response Submitted and Evaluated Server-Side.");
+      
       setEvaluation(res.evaluation);
 
       if (res.interview_complete) {
@@ -74,13 +80,13 @@ export default function InterviewPage() {
             router.push(`/report/${interviewId}`);
           } catch (err) {
             setError("Failed to generate final report. Please refresh.");
-            setPhase("reviewing"); // Allow retry
+            setPhase("reviewing"); 
           }
         }, 3000);
       } else {
         setPhase("feedback");
         if (res.next_question) {
-          addQuestion(res.next_question, res.evaluation.topic, []);
+          addQuestion(res.next_question, res.evaluation.topic, [], res.audio_url);
         }
       }
     } catch (e: any) {
@@ -90,7 +96,7 @@ export default function InterviewPage() {
   };
 
   const handleNextQuestion = () => {
-    resetTranscript();
+    resetAudio();
     setEvaluation(null);
     setPhase("ready");
   };
@@ -134,7 +140,7 @@ export default function InterviewPage() {
           </div>
         )}
 
-        {isSpeaking && (
+        {isPlaying && (
           <div className="ml-14 flex items-center gap-3 text-slate-400 text-sm font-medium">
             <div className="flex gap-1">
               {[0, 0.1, 0.2].map(d => <span key={d} className="w-1.5 h-4 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: `${d}s` }} />)}
@@ -152,19 +158,19 @@ export default function InterviewPage() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Spoken Response</h3>
-              {isListening && <span className="flex items-center gap-2 text-red-500 text-xs font-bold animate-pulse"><span className="w-2 h-2 rounded-full bg-red-500" /> Recording Live</span>}
+              {isRecording && <span className="flex items-center gap-2 text-red-500 text-xs font-bold animate-pulse"><span className="w-2 h-2 rounded-full bg-red-500" /> Recording Live</span>}
             </div>
             
-            <div className={`p-6 rounded-2xl border transition-all duration-300 ${isListening ? 'border-red-100 bg-red-50/30' : 'border-slate-100 bg-slate-50'}`}>
-              <p className={`min-h-[80px] leading-relaxed ${transcript ? 'text-slate-900' : 'text-slate-400 italic'}`}>
-                {transcript || (isListening ? "Listening for your voice..." : "No speech detected yet.")}
+            <div className={`p-6 rounded-2xl border transition-all duration-300 ${isRecording ? 'border-red-100 bg-red-50/30' : 'border-slate-100 bg-slate-50'}`}>
+              <p className={`min-h-[80px] leading-relaxed ${audioBlob ? 'text-slate-900' : 'text-slate-400 italic'}`}>
+                {audioBlob ? "Audio recorded successfully. Ready to submit." : (isRecording ? "Listening for your voice..." : "Click 'Start Speaking' to record your answer.")}
               </p>
             </div>
 
             <div className="mt-4 flex gap-3">
-              {!isListening ? (
+              {!isRecording ? (
                 <button onClick={handleStartRecording} className="btn-primary">
-                  {transcript ? "Resume Speaking" : "Start Speaking"}
+                  {audioBlob ? "Re-record Voice" : "Start Speaking"}
                 </button>
               ) : (
                 <button onClick={handleStopRecording} className="btn-primary !bg-red-600 hover:!bg-red-700">
@@ -172,16 +178,13 @@ export default function InterviewPage() {
                 </button>
               )}
             </div>
-            {(speechError || !isSupported) && (
-              <p className="mt-3 text-sm text-red-500 font-medium p-3 bg-red-50 rounded-lg border border-red-100">{!isSupported ? "Voice recognition not supported in this browser. Please use Chrome." : speechError}</p>
-            )}
           </section>
 
           {/* Action Footer */}
           <div className="pt-6 border-t border-slate-100 flex flex-col items-center">
             <button 
               onClick={handleSubmitAnswer} 
-              disabled={isListening || !transcript.trim()}
+              disabled={isRecording || !audioBlob}
               className="btn-primary w-full md:w-64"
             >
               Submit Answer
@@ -195,7 +198,7 @@ export default function InterviewPage() {
       {phase === "evaluating" && (
         <div className="py-20 text-center animate-pulse">
           <p className="text-slate-900 font-medium text-lg">Analyzing your response...</p>
-          <p className="text-slate-400 text-sm mt-1">Comparing with technical benchmarks</p>
+          <p className="text-slate-400 text-sm mt-1">Converting speech to text and comparing with technical benchmarks...</p>
         </div>
       )}
 

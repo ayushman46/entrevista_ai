@@ -44,6 +44,24 @@ export const api = {
     });
   },
 
+  async submitAnswerAudio(interviewId: string, questionIndex: number, audioBlob: Blob): Promise<AnswerResponse> {
+    const form = new FormData();
+    form.append("interview_id", interviewId);
+    form.append("question_index", questionIndex.toString());
+    form.append("audio_file", audioBlob, "answer.webm");
+
+    const res = await fetch(`${BASE_URL}/interview/answer_audio`, {
+      method: "POST",
+      body: form,
+    });
+    
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(error.detail || "Audio submission failed");
+    }
+    return res.json();
+  },
+
   async getInterview(interviewId: string): Promise<any> {
     return request<any>(`/interview/${interviewId}`);
   },

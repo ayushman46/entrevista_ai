@@ -55,7 +55,7 @@ export default function UploadPage() {
     setError(null);
     try {
       const res = await api.startInterview(resumeId, role, candidateName);
-      startInterview(res.interview_id, res.first_question, res.topic, res.total_planned_questions);
+      startInterview(res.interview_id, res.first_question, res.topic, res.total_planned_questions, res.audio_url);
       router.push(`/interview/${res.interview_id}`);
     } catch (e: any) {
       setError(e.message || "Failed to start interview");

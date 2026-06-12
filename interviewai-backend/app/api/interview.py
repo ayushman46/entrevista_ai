@@ -1,6 +1,6 @@
 import json
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app.config import settings
 from app.schemas.interview import (
     InterviewStartRequest, InterviewStartResponse,
@@ -10,9 +10,9 @@ from app.services.session_manager import session_manager
 from app.services.interview_engine import start_interview, evaluate_answer
 from app.services.evaluation_engine import generate_final_evaluation
 from app.services.report_generator import generate_pdf_report
+from app.services.audio_service import generate_tts, transcribe_audio
 
 router = APIRouter()
-
 
 def load_resume(resume_id: str) -> dict:
     path = os.path.join(settings.UPLOAD_DIR, f"{resume_id}.json")
@@ -48,12 +48,16 @@ async def start_interview_session(request: InterviewStartRequest):
         interview_plan=role_plan,
     )
 
+    audio_filename = await generate_tts(first_q["question"])
+    audio_url = f"/audio/{audio_filename}" if audio_filename else None
+
     return InterviewStartResponse(
         interview_id=session["interview_id"],
         first_question=first_q["question"],
         topic=first_q["topic"],
         difficulty=first_q.get("difficulty", role_plan.get("difficulty", "medium")),
         total_planned_questions=role_plan.get("estimated_questions", 12),
+        audio_url=audio_url,
     )
 
 
@@ -105,6 +109,86 @@ async def submit_answer(request: AnswerSubmitRequest):
         interview_complete=is_complete,
         next_question=evaluation.get("next_question") if not is_complete else None,
         question_index=len(updated_session["questions"]) - 1,
+    )
+
+
+@router.post("/answer_audio", response_model=AnswerResponse)
+async def submit_answer_audio(
+    interview_id: str = Form(...),
+    question_index: int = Form(...),
+    audio_file: UploadFile = File(...)
+):
+    session = session_manager.get_session(interview_id)
+    if not session:
+        raise HTTPException(404, "Interview session not found")
+    if session["status"] == "completed":
+        raise HTTPException(400, "Interview already completed")
+
+    # Save audio temporarily
+    import uuid
+    import aiofiles
+    temp_audio_path = os.path.join(settings.UPLOAD_DIR, f"temp_{uuid.uuid4().hex}_{audio_file.filename}")
+    async with aiofiles.open(temp_audio_path, 'wb') as out_file:
+        content = await audio_file.read()
+        await out_file.write(content)
+
+    try:
+        # Transcribe with Groq
+        answer_text = await transcribe_audio(temp_audio_path)
+    finally:
+        if os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
+
+    if not answer_text.strip():
+        raise HTTPException(400, "No speech detected in audio")
+
+    # Evaluate logic (reuses existing structure)
+    questions = session.get("questions", [])
+    if question_index >= 0 and question_index < len(questions):
+        current_q = questions[question_index]
+    else:
+        raise HTTPException(400, "Invalid question index")
+
+    evaluation, is_complete = await evaluate_answer(
+        interview_id=interview_id,
+        question=current_q["question"],
+        answer=answer_text,
+        expected_concepts=current_q.get("expected_concepts", []),
+        topic=current_q.get("topic", "General"),
+        role=session["role"],
+    )
+
+    from app.schemas.interview import EvaluationResult
+    eval_result = EvaluationResult(
+        technical_score=evaluation.get("technical_score", 5),
+        communication_score=evaluation.get("communication_score", 5),
+        confidence_score=evaluation.get("confidence_score", 5),
+        answer_quality=evaluation.get("answer_quality", "Fair"),
+        missing_concepts=evaluation.get("missing_concepts", []),
+        follow_up_required=evaluation.get("follow_up_required", False),
+        difficulty_change=evaluation.get("difficulty_change", "maintain"),
+        topic=evaluation.get("topic", ""),
+        next_question=evaluation.get("next_question", ""),
+        feedback=evaluation.get("feedback", ""),
+    )
+
+    updated_session = session_manager.get_session(interview_id)
+    if not updated_session:
+        raise HTTPException(404, "Interview session not found after evaluation")
+
+    # Generate TTS for the next question if the interview isn't over
+    audio_url = None
+    if not is_complete and evaluation.get("next_question"):
+        audio_filename = await generate_tts(evaluation.get("next_question"))
+        if audio_filename:
+            audio_url = f"/audio/{audio_filename}"
+
+    return AnswerResponse(
+        evaluation=eval_result,
+        interview_complete=is_complete,
+        next_question=evaluation.get("next_question") if not is_complete else None,
+        question_index=len(updated_session["questions"]) - 1,
+        audio_url=audio_url,
     )
 
 

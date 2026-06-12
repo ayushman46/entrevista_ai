@@ -28,6 +28,7 @@ export interface InterviewStartResponse {
   topic: string;
   difficulty: string;
   total_planned_questions: number;
+  audio_url?: string;
 }
 
 export interface EvaluationResult {
@@ -48,6 +49,7 @@ export interface AnswerResponse {
   interview_complete: boolean;
   next_question: string | null;
   question_index: number;
+  audio_url?: string;
 }
 
 export interface InterviewQuestion {
@@ -56,6 +58,7 @@ export interface InterviewQuestion {
   answer?: string;
   evaluation?: EvaluationResult;
   expectedConcepts?: string[];
+  audioUrl?: string;
 }
 
 export interface FinalReport {
