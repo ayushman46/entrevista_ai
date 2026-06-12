@@ -1,0 +1,4 @@
+interviewai-frontend/node_modules/
+interviewai-backend/venv/
+interviewai-backend/sessions/*.db
+interviewai-backend/.env

@@ -1,0 +1,142 @@
+{
+  "resume_id": "59f117e5-0326-489d-8b66-fc8276f7e8d0",
+  "resume_data": {
+    "name": "Ayushman Chakraborty",
+    "email": "ayushman.mitblr@gmail.com",
+    "phone": "+91 99165 26200",
+    "skills": [
+      "Object Oriented Programming",
+      "REST APIs",
+      "Microservices",
+      "System Design",
+      "CI/CD",
+      "Git",
+      "Docker",
+      "LangChain",
+      "RAG pipelines",
+      "agentic workflows",
+      "prompt engineering",
+      "LLM evaluation",
+      "FAISS",
+      "BM25",
+      "vector databases",
+      "scikit-learn",
+      "pandas",
+      "NumPy",
+      "PyTorch",
+      "XGBoost",
+      "time series forecasting",
+      "EDA",
+      "statistical hypothesis testing",
+      "predictive modeling"
+    ],
+    "technologies": [
+      "Python",
+      "SQL",
+      "PostgreSQL",
+      "MySQL",
+      "JavaScript",
+      "Azure OpenAI",
+      "GPT-4o",
+      "Groq API",
+      "Apache Spark",
+      "PySpark",
+      "HuggingFace Transformers",
+      "FastAPI",
+      "Streamlit",
+      "MLflow",
+      "LangGraph",
+      "MCP"
+    ],
+    "projects": [
+      {
+        "name": "Multimodal Document Intelligence Engine",
+        "description": "A containerized RAG microservice with a RESTful API layer",
+        "tech_stack": [
+          "Python",
+          "LangChain",
+          "FAISS",
+          "BM25",
+          "GPT-4o",
+          "OCR",
+          "FastAPI",
+          "Docker",
+          "REST APIs",
+          "Streamlit",
+          "pytest"
+        ]
+      },
+      {
+        "name": "StrideCircle: Full Stack AI Running Analytics Platform",
+        "description": "A full stack web application with React frontend, Express.js backend, and Strava OAuth 2.0",
+        "tech_stack": [
+          "React 19",
+          "Express.js",
+          "PostgreSQL",
+          "Supabase",
+          "Groq API",
+          "Strava API",
+          "Vercel",
+          "REST APIs",
+          "MVC"
+        ]
+      },
+      {
+        "name": "Autonomous Data Pipeline Builder",
+        "description": "A distributed text to SQL ETL automation system using Apache Spark and LangChain",
+        "tech_stack": [
+          "Python",
+          "Apache Spark",
+          "PySpark",
+          "SQL",
+          "LangChain",
+          "Great Expectations",
+          "Docker",
+          "Linux"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "company": "Wipro Limited",
+        "role": "Software Engineering and Generative AI Intern",
+        "duration": "Jun 2025 \u2013 Jul 2025",
+        "key_points": [
+          "Reduced per record latency by 40% and achieved 98% output consistency",
+          "Architected a multimodal backend pipeline using Whisper and GPT-4o on Azure OpenAI",
+          "Reduced analyst workload by 60% by containerizing the full system with Docker and CI/CD"
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": "B.Tech Computer Science",
+        "institution": "Manipal Institute of Technology Bangalore",
+        "year": "Ongoing"
+      }
+    ],
+    "certifications": [],
+    "achievements": [
+      "Top 5 of 50 Teams in Hackverse Hackathon organized by IBM SkillsBuild and AWS",
+      "Solved 100+ problems on LeetCode in Python across Data Structures and Algorithms"
+    ],
+    "summary": "Ayushman Chakraborty is a 3rd-year B.Tech Computer Science student with production experience in delivering latency reduction, output consistency, and analyst workload reduction on an Azure OpenAI LLM pipeline. He has shipped two production systems, including a containerized RAG microservice and a full stack AI analytics platform. He has expertise in software engineering, AI, and machine learning, with proficiency in languages such as Python, SQL, and JavaScript."
+  },
+  "interview_plan": {
+    "topics": [
+      "System Design",
+      "Machine Learning",
+      "Programming",
+      "Data Science",
+      "Cloud Computing"
+    ],
+    "difficulty": "medium",
+    "estimated_questions": 12,
+    "focus_areas": [
+      "Technical Skills",
+      "Problem-Solving"
+    ],
+    "opening_question_topic": "System Design"
+  },
+  "filename": "Ayushman_Chakraborty_SDE.pdf"
+}

@@ -1,0 +1,119 @@
+{
+  "resume_id": "1109dc30-540d-490e-a543-12a4ab4dfbf3",
+  "resume_data": {
+    "name": "Ayushman Chakraborty",
+    "email": "ayushman.mitblr@gmail.com",
+    "phone": "+91 99165 26200",
+    "skills": [
+      "Python",
+      "Data Engineering",
+      "AI Integration",
+      "Data Structures and Algorithms",
+      "Computer Vision",
+      "Data Analysis",
+      "Data Visualization"
+    ],
+    "technologies": [
+      "NumPy",
+      "Pandas",
+      "Matplotlib",
+      "Plotly",
+      "OpenCV",
+      "YOLOv8",
+      "SMPL",
+      "PyTorch",
+      "LangChain",
+      "GPT-4o",
+      "REST APIs",
+      "Git",
+      "PostgreSQL",
+      "Supabase",
+      "React.js",
+      "Docker"
+    ],
+    "projects": [
+      {
+        "name": "Biomechanics Analysis Pipeline for Cricket Bowling",
+        "description": "Built a computer vision pipeline to reconstruct 3D skeletal pose models from match footage",
+        "tech_stack": [
+          "Python",
+          "YOLOv8",
+          "SMPL",
+          "OpenCV",
+          "Matplotlib 3D",
+          "NumPy"
+        ]
+      },
+      {
+        "name": "StrideCircle: Full Stack AI Sensor Analytics Platform",
+        "description": "Shipped a full-stack platform that ingests live GPS and biometric telemetry and computes performance scores",
+        "tech_stack": [
+          "React 19",
+          "Express.js",
+          "PostgreSQL",
+          "Supabase",
+          "Groq API",
+          "Strava API",
+          "Vercel",
+          "Plotly"
+        ]
+      },
+      {
+        "name": "Multimodal Document Intelligence Engine",
+        "description": "Achieved 86% accuracy on DocVQA benchmark with a containerized RAG microservice",
+        "tech_stack": [
+          "Python",
+          "LangChain",
+          "FAISS",
+          "BM25",
+          "GPT-4o",
+          "FastAPI",
+          "Docker",
+          "Streamlit"
+        ]
+      }
+    ],
+    "experience": [
+      {
+        "company": "Wipro Limited",
+        "role": "Software Engineering and Generative AI Intern",
+        "duration": "Jun 2025 - Jul 2025",
+        "key_points": [
+          "Reduced per-record latency by 40% and achieved 98% output consistency",
+          "Architected a multimodal backend pipeline to ingest, transform, and validate data from 30+ internal sources",
+          "Reduced analyst workload by 60% by containerizing the full system with Docker and CI/CD"
+        ]
+      }
+    ],
+    "education": [
+      {
+        "degree": "B.Tech Computer Science and Engineering, Specialization in Data Science",
+        "institution": "Manipal Institute of Technology Bangalore",
+        "year": "2023-2027"
+      }
+    ],
+    "certifications": [],
+    "achievements": [
+      "Top 5 of 50 Teams in Hackverse Hackathon organized by IBM SkillsBuild and AWS",
+      "Solved 100+ problems on LeetCode in Python across Data Structures and Algorithms"
+    ],
+    "summary": "Ayushman Chakraborty is a final year B.Tech Computer Science student with production internship experience at Wipro, delivering AI pipelines and building 3D skeletal reconstruction and biomechanical analysis systems. He is proficient in Python, data engineering, and AI integration with a strong focus on translating raw structured data into actionable visual insights."
+  },
+  "interview_plan": {
+    "topics": [
+      "Data Structures and Algorithms",
+      "Data Engineering",
+      "AI Integration",
+      "Computer Vision",
+      "Data Analysis and Visualization"
+    ],
+    "difficulty": "medium",
+    "estimated_questions": 12,
+    "focus_areas": [
+      "Technical Skills",
+      "Problem-Solving"
+    ],
+    "opening_question_topic": "Data Structures and Algorithms"
+  },
+  "filename": "Ayushman_Chakraborty_Airbus.pdf"
+}
