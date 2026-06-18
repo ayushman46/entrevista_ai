@@ -63,6 +63,9 @@ async def start_interview_session(request: InterviewStartRequest):
 
 @router.post("/answer", response_model=AnswerResponse)
 async def submit_answer(request: AnswerSubmitRequest):
+    if len(request.answer_text) > 2000:
+        raise HTTPException(400, "Answer text is too long (maximum 2000 characters)")
+    
     session = session_manager.get_session(request.interview_id)
     if not session:
         raise HTTPException(404, "Interview session not found")

@@ -82,30 +82,38 @@ export function useSpeechRecognition(): UseSpeechRecognitionReturn {
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
+        recognitionRef.current = null;
       }
     };
   }, [isSupported]);
 
+  // Use a ref to track if we should be listening to avoid state/effect lag
+  const phaseRef = useRef<string>("idle");
+
   const startListening = useCallback(() => {
     if (!recognitionRef.current) return;
     
+    phaseRef.current = "listening";
     setError(null);
-    
-    // Only clear transcript if we are starting fresh (not resuming from a network drop)
-    if (!finalTranscriptRef.current && !transcript) {
-       setTranscript("");
-    }
     
     try {
       recognitionRef.current.start();
     } catch (e) {
-      console.error("Could not start mic:", e);
+      // If already started, this is fine
+      if (!(e instanceof DOMException && e.name === "InvalidStateError")) {
+        console.error("Could not start recognition:", e);
+      }
     }
-  }, [transcript]);
+  }, []);
 
   const stopListening = useCallback(() => {
+    phaseRef.current = "idle";
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error("Stop failed:", e);
+      }
     }
   }, []);
 

@@ -98,7 +98,20 @@ export default function UploadPage() {
           )}
         </div>
 
-        {error && <p className="text-red-500 text-sm mt-6">{error}</p>}
+        {error && (
+          <div className="mt-6 p-4 bg-red-50 rounded-lg">
+            <p className="text-red-500 text-sm mb-3">{error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                setStep("config");
+              }}
+              className="text-sm font-medium text-slate-900 underline"
+            >
+              Skip Resume & Enter Details Manually
+            </button>
+          </div>
+        )}
 
         <div className="mt-10">
           <button

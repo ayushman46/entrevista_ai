@@ -1,7 +1,8 @@
 import json
 import logging
+from datetime import datetime
 from app.llm.orchestrator import llm
-from app.prompts.question_generation import get_first_question_prompt, get_next_question_prompt
+from app.prompts.question_generation import get_greeting_prompt, get_first_question_prompt, get_next_question_prompt
 from app.prompts.answer_evaluation import get_evaluation_prompt
 from app.services.session_manager import session_manager
 
@@ -36,34 +37,25 @@ async def start_interview(
         }
     })
 
-    prompt = get_first_question_prompt(
-        resume_summary=resume_summary,
-        role=role,
-        topics=interview_plan.get("topics", []),
-        difficulty=interview_plan.get("difficulty", "medium"),
-        opening_topic=interview_plan.get("opening_question_topic", interview_plan.get("topics", ["General"])[0]),
-    )
+    # Generate a warm greeting first
+    prompt = get_greeting_prompt(candidate_name=candidate_name, role=role)
 
     response = await llm.generate(
         prompt=prompt,
         system_prompt=INTERVIEW_SYSTEM_PROMPT,
-        max_tokens=500,
+        max_tokens=200,
         temperature=0.7,
     )
 
     clean = _clean_json(response)
     question_data = json.loads(clean)
     
-    # Store the first question in the session's questions array so it can be answered
-    session_manager.update_session(interview_id, {
-        "questions": [{
-            "index": 0,
-            "question": question_data.get("question", ""),
-            "answer": "",
-            "topic": question_data.get("topic", ""),
-            "timestamp": ""
-        }]
-    })
+    # Store the greeting in the session
+    session_manager.add_question(
+        interview_id=interview_id,
+        question=question_data.get("question", ""),
+        topic="Introduction"
+    )
     
     return question_data
 
@@ -84,6 +76,39 @@ async def evaluate_answer(
     ctx = session["interview_context"]
     current_difficulty = ctx.get("current_difficulty", "medium")
 
+    # Special handling for greeting turn
+    if topic == "Introduction" and len(session["questions"]) == 1:
+        # Acknowledge social response and ask first technical question
+        first_q_data = await _get_first_technical_question(interview_id, role, answer)
+        evaluation = {
+            "technical_score": 10,
+            "communication_score": 10,
+            "confidence_score": 10,
+            "answer_quality": "Natural",
+            "missing_concepts": [],
+            "follow_up_required": False,
+            "difficulty_change": "maintain",
+            "topic": "Introduction",
+            "next_question": first_q_data.get("question", ""),
+            "feedback": "Great to meet you!",
+        }
+        
+        # Record the social answer
+        session_manager.record_answer(
+            interview_id=interview_id,
+            answer=answer,
+            evaluation=evaluation
+        )
+        
+        # Add the first technical question to the session
+        session_manager.add_question(
+            interview_id=interview_id,
+            question=first_q_data.get("question", ""),
+            topic=first_q_data.get("topic", "Technical")
+        )
+        
+        return evaluation, False
+
     prompt = get_evaluation_prompt(
         question=question,
         answer=answer,
@@ -103,13 +128,11 @@ async def evaluate_answer(
     clean = _clean_json(response)
     evaluation = json.loads(clean)
 
-    # Update session
-    session_manager.add_question_answer(
+    # Record the answer
+    session_manager.record_answer(
         interview_id=interview_id,
-        question=question,
         answer=answer,
-        evaluation=evaluation,
-        topic=topic,
+        evaluation=evaluation
     )
 
     # Check if follow-up or new topic
@@ -126,8 +149,40 @@ async def evaluate_answer(
         evaluation["next_question"] = next_q_data.get("question", "")
         evaluation["next_topic"] = next_q_data.get("topic", "")
         evaluation["next_expected_concepts"] = next_q_data.get("expected_concepts", [])
+        
+        # Add the next question to the session
+        session_manager.add_question(
+            interview_id=interview_id,
+            question=evaluation["next_question"],
+            topic=evaluation["next_topic"]
+        )
 
     return evaluation, is_complete
+
+
+async def _get_first_technical_question(interview_id: str, role: str, social_response: str) -> dict:
+    """Generate the actual first technical question."""
+    session = session_manager.get_session(interview_id)
+    ctx = session["interview_context"]
+    plan = session.get("interview_plan", {})
+    
+    prompt = get_first_question_prompt(
+        resume_summary=ctx.get("resume_summary", ""),
+        role=role,
+        topics=plan.get("topics", []),
+        difficulty=plan.get("difficulty", "medium"),
+        opening_topic=plan.get("opening_question_topic", plan.get("topics", ["General"])[0]),
+        candidate_name=ctx.get("candidate_name", "Candidate"),
+        social_response=social_response
+    )
+    
+    response = await llm.generate(
+        prompt=prompt,
+        system_prompt=INTERVIEW_SYSTEM_PROMPT,
+        max_tokens=400,
+        temperature=0.7,
+    )
+    return json.loads(_clean_json(response))
 
 
 async def get_next_question(interview_id: str, role: str) -> dict:

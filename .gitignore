@@ -2,3 +2,25 @@ interviewai-frontend/node_modules/
 interviewai-backend/venv/
 interviewai-backend/sessions/*.db
 interviewai-backend/.env
+REPORT.md
+PRODUCT_PITCH.md
+ARCHITECTURE.md
+ARCHITECTURE_V2.md
+prompt.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+
+# Next.js
+interviewai-frontend/.next/
+interviewai-frontend/out/
+interviewai-frontend/build/
+
+# Audio/Uploads
+interviewai-backend/uploads/
+interviewai-backend/reports/
+

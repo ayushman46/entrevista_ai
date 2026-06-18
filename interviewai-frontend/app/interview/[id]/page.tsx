@@ -1,13 +1,14 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { api } from "@/services/api";
 import { useInterviewStore } from "@/store/interviewStore";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useServerAudio } from "@/hooks/useServerAudio";
-import type { EvaluationResult } from "@/types/interview";
+import { useInterviewWebSocket } from "@/hooks/useInterviewWebSocket";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
-type Phase = "ready" | "speaking" | "recording" | "reviewing" | "evaluating" | "feedback";
+type Phase = "idle" | "greeting" | "listening" | "processing" | "completed";
 
 export default function InterviewPage() {
   const params = useParams();
@@ -16,219 +17,293 @@ export default function InterviewPage() {
 
   const {
     questions, currentQuestionIndex, role, totalPlanned,
-    recordAnswer, addQuestion, setFinalReport,
+    recordAnswer, addQuestion, setFinalReport, setQuestionIndex
   } = useInterviewStore();
 
-  const { isRecording, audioBlob, startRecording, stopRecording, resetAudio } = useAudioRecorder();
-  const { playAudio, stopAudio, isPlaying } = useServerAudio();
+  const { startRecording, stopRecording, isRecording } = useAudioRecorder();
+  const { playAudio, stopAudio } = useServerAudio();
+  const { 
+    transcript, 
+    startListening, 
+    stopListening, 
+    resetTranscript, 
+    isSupported: isSpeechSupported, 
+    error: speechError 
+  } = useSpeechRecognition();
 
-  const [phase, setPhase] = useState<Phase>("ready");
-  const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState("");
+  
   const currentQ = questions[currentQuestionIndex];
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Cleanup audio if unmounted
-  useEffect(() => {
-    return () => stopAudio();
-  }, [stopAudio]);
-
-  const handlePlayQuestion = useCallback(() => {
-    if (!currentQ || !currentQ.audioUrl) {
-      // Fallback if no audio URL is available (e.g., TTS failed on server)
-      setPhase("recording");
-      return;
+  // WebSocket message handler
+  const handleWSMessage = useCallback((msg: any) => {
+    if (msg.type === "transcript") {
+      setLiveTranscript(msg.text);
+    } else if (msg.type === "turn_complete") {
+      if (msg.interview_complete) {
+        setPhase("completed");
+        recordAnswer(currentQuestionIndex, liveTranscript || transcript || "Audio Response Submitted");
+        // Generate final report
+        api.completeInterview(interviewId).then(report => {
+          setFinalReport(report);
+          router.push(`/report/${interviewId}`);
+        });
+      } else {
+        if (msg.next_question) {
+          addQuestion(msg.next_question, msg.topic || "Technical", [], msg.audio_url);
+          recordAnswer(currentQuestionIndex, liveTranscript || transcript || "Audio Response Submitted");
+          setQuestionIndex(currentQuestionIndex + 1);
+          setLiveTranscript("");
+          
+          // Auto-play the next question
+          if (msg.audio_url) {
+            setPhase("greeting"); // AI speaking
+            playAudio(msg.audio_url, () => {
+              setPhase("listening");
+              resetTranscript();
+              startListening();
+              startRecording(sendAudio);
+            });
+          } else {
+            // No audio URL, go straight to listening
+            setPhase("listening");
+            resetTranscript();
+            startListening();
+            startRecording(sendAudio);
+          }
+        }
+      }
+    } else if (msg.type === "error") {
+      setError(msg.message);
+      setPhase("listening"); // Attempt to recover
     }
-    setPhase("speaking");
-    playAudio(currentQ.audioUrl, () => setPhase("recording"));
-  }, [currentQ, playAudio]);
+  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startRecording, startListening, resetTranscript]);
 
-  const handleStartRecording = useCallback(() => {
-    stopAudio();
-    startRecording();
-  }, [stopAudio, startRecording]);
+  const { isConnected, sendAudio, sendMessage } = useInterviewWebSocket(interviewId, handleWSMessage);
 
-  const handleStopRecording = useCallback(() => {
-    stopRecording();
-    setPhase("reviewing");
-  }, [stopRecording]);
+  // VAD logic: Detect end of user speaking
+  useEffect(() => {
+    // Only trigger VAD if we have some significant content and are in the listening phase
+    if (phase === "listening" && transcript.trim().length > 1) {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      
+      silenceTimerRef.current = setTimeout(async () => {
+        // Stop recording/listening and signal turn end
+        setPhase("processing");
+        await stopRecording();
+        stopListening();
+        sendMessage({ type: "end_of_turn" });
+      }, 2500); // 2.5 seconds of silence
+    }
+    
+    return () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+  }, [transcript, phase, stopRecording, stopListening, sendMessage]);
 
-  const handleSubmitAnswer = async () => {
-    if (!audioBlob) {
-      setError("Please provide a verbal answer before submitting.");
+  const startInterview = () => {
+    if (!currentQ) return;
+    if (!isSpeechSupported) {
+      setError("Speech recognition is not supported in this browser. Please use Chrome or Safari.");
       return;
     }
     
-    setError(null);
-    setPhase("evaluating");
+    setPhase("greeting");
+    // Start mic/recognition immediately to ensure user gesture context is captured
+    // but the system will ignore input until the AI finishes speaking
+    startListening();
+    startRecording(sendAudio);
 
-    try {
-      // Send raw audio blob to the backend for processing
-      const res = await api.submitAnswerAudio(interviewId, currentQuestionIndex, audioBlob);
-      
-      // Save transcript (returned in feedback or evaluation for now) to store
-      // Since Groq transcribes it on the backend, we record "Audio Submitted" in the store for UI purposes
-      recordAnswer(currentQuestionIndex, "Audio Response Submitted and Evaluated Server-Side.");
-      
-      setEvaluation(res.evaluation);
-
-      if (res.interview_complete) {
-        setPhase("feedback");
-        setTimeout(async () => {
-          try {
-            const report = await api.completeInterview(interviewId);
-            setFinalReport(report);
-            router.push(`/report/${interviewId}`);
-          } catch (err) {
-            setError("Failed to generate final report. Please refresh.");
-            setPhase("reviewing"); 
-          }
-        }, 3000);
-      } else {
-        setPhase("feedback");
-        if (res.next_question) {
-          addQuestion(res.next_question, res.evaluation.topic, [], res.audio_url);
-        }
-      }
-    } catch (e: any) {
-      setError(e.message || "Evaluation failed. Please try again.");
-      setPhase("reviewing");
+    if (currentQ.audioUrl) {
+      playAudio(currentQ.audioUrl, () => {
+        setPhase("listening");
+        resetTranscript();
+      });
+    } else {
+      setPhase("listening");
+      resetTranscript();
     }
   };
 
-  const handleNextQuestion = () => {
-    resetAudio();
-    setEvaluation(null);
-    setPhase("ready");
-  };
-
-  const progress = Math.round((currentQuestionIndex / totalPlanned) * 100);
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      stopAudio();
+      stopRecording();
+      stopListening();
+    };
+  }, [stopAudio, stopRecording, stopListening]);
 
   if (!currentQ) {
-    return <div className="p-20 text-center text-slate-500 animate-pulse">Initializing Interview Context...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Connecting to Interviewer...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
-      {/* Header & Progress */}
-      <div className="flex items-center justify-between mb-8 border-b border-slate-100 pb-4">
+    <div className="max-w-3xl mx-auto px-4 py-12 min-h-[85vh] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-12 border-b border-slate-100 pb-6">
         <div>
-          <span className="text-slate-500 font-medium text-sm">Question {currentQuestionIndex + 1} / {totalPlanned}</span>
-          <span className="ml-3 px-2 py-1 bg-slate-100 text-slate-600 text-xs font-medium rounded-full">{currentQ.topic}</span>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Real-Time Technical Interview</h2>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Server</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${isRecording ? "bg-green-500" : "bg-slate-300"}`} />
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Mic</span>
+            </div>
+            <span className="text-slate-900 font-medium capitalize ml-2">{role.replace("_", " ")}</span>
+          </div>
         </div>
-        <div className="text-sm font-medium text-slate-500 capitalize">{role.replace("_", " ")}</div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-slate-900">{currentQuestionIndex + 1}<span className="text-slate-300 text-lg">/{totalPlanned}</span></div>
+          <div className="text-[10px] font-bold text-slate-400 uppercase">Turn</div>
+        </div>
       </div>
 
-      <div className="w-full h-1 bg-slate-100 rounded-full mb-12 overflow-hidden">
-        <div className="h-full bg-slate-900 transition-all duration-500" style={{ width: `${progress}%` }} />
-      </div>
-
-      {/* AI Question */}
-      <div className="mb-12">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">AI</div>
-          <div className="pt-2">
-            <p className="text-slate-900 text-xl font-medium leading-relaxed tracking-tight">{currentQ.question}</p>
+      {phase === "idle" ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-1000">
+          <div className="w-24 h-24 bg-slate-900 rounded-full flex items-center justify-center shadow-xl">
+            <svg className="w-10 h-10 text-white translate-x-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
-        </div>
-        
-        {phase === "ready" && (
-          <div className="ml-14 animate-in fade-in">
-            <button onClick={handlePlayQuestion} className="px-6 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-bold flex items-center gap-2 transition-all">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              {currentQuestionIndex === 0 ? "Start Interview (Play Audio)" : "Listen to Question"}
-            </button>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Join the Conversation</h1>
+            <p className="text-slate-500 max-w-sm">The interview will start with a greeting. Simply speak naturally as you would in a real interview.</p>
           </div>
-        )}
-
-        {isPlaying && (
-          <div className="ml-14 flex items-center gap-3 text-slate-400 text-sm font-medium">
-            <div className="flex gap-1">
-              {[0, 0.1, 0.2].map(d => <span key={d} className="w-1.5 h-4 bg-slate-400 rounded-full animate-pulse" style={{ animationDelay: `${d}s` }} />)}
-            </div>
-            Interviewer is speaking...
-          </div>
-        )}
-      </div>
-
-      {/* Interaction Area */}
-      {phase !== "ready" && phase !== "speaking" && phase !== "evaluating" && !evaluation && (
-        <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          
-          {/* Voice Input Section */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Spoken Response</h3>
-              {isRecording && <span className="flex items-center gap-2 text-red-500 text-xs font-bold animate-pulse"><span className="w-2 h-2 rounded-full bg-red-500" /> Recording Live</span>}
-            </div>
-            
-            <div className={`p-6 rounded-2xl border transition-all duration-300 ${isRecording ? 'border-red-100 bg-red-50/30' : 'border-slate-100 bg-slate-50'}`}>
-              <p className={`min-h-[80px] leading-relaxed ${audioBlob ? 'text-slate-900' : 'text-slate-400 italic'}`}>
-                {audioBlob ? "Audio recorded successfully. Ready to submit." : (isRecording ? "Listening for your voice..." : "Click 'Start Speaking' to record your answer.")}
-              </p>
-            </div>
-
-            <div className="mt-4 flex gap-3">
-              {!isRecording ? (
-                <button onClick={handleStartRecording} className="btn-primary">
-                  {audioBlob ? "Re-record Voice" : "Start Speaking"}
-                </button>
-              ) : (
-                <button onClick={handleStopRecording} className="btn-primary !bg-red-600 hover:!bg-red-700">
-                  Stop Recording
-                </button>
-              )}
-            </div>
-          </section>
-
-          {/* Action Footer */}
-          <div className="pt-6 border-t border-slate-100 flex flex-col items-center">
-            <button 
-              onClick={handleSubmitAnswer} 
-              disabled={isRecording || !audioBlob}
-              className="btn-primary w-full md:w-64"
-            >
-              Submit Answer
-            </button>
-            {error && <p className="mt-4 text-sm text-red-500 font-medium">{error}</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Evaluating/Feedback States */}
-      {phase === "evaluating" && (
-        <div className="py-20 text-center animate-pulse">
-          <p className="text-slate-900 font-medium text-lg">Analyzing your response...</p>
-          <p className="text-slate-400 text-sm mt-1">Converting speech to text and comparing with technical benchmarks...</p>
-        </div>
-      )}
-
-      {evaluation && phase === "feedback" && (
-        <div className="pt-12 border-t border-slate-100 animate-in fade-in slide-in-from-bottom-8 duration-700">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-medium text-slate-900">Feedback</h2>
-            <div className="px-4 py-1 bg-slate-900 text-white text-xs font-bold rounded-full uppercase tracking-tighter">{evaluation.answer_quality}</div>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-6 mb-10">
-            {[
-              { label: "Technical", score: evaluation.technical_score },
-              { label: "Delivery", score: evaluation.communication_score },
-              { label: "Confidence", score: evaluation.confidence_score },
-            ].map(({ label, score }) => (
-              <div key={label} className="bg-slate-50 p-6 rounded-3xl text-center">
-                <div className="text-3xl font-bold text-slate-900 mb-1">{score}<span className="text-xs text-slate-400 font-normal">/10</span></div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-slate-600 leading-relaxed text-lg mb-10">{evaluation.feedback}</p>
-
-          <button onClick={handleNextQuestion} className="btn-primary w-full md:w-auto">
-            {evaluation.follow_up_required ? "Answer Follow-up" : "Next Question"}
+          <button 
+            onClick={startInterview} 
+            disabled={!isConnected}
+            className={`px-12 py-4 text-lg rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all ${
+              isConnected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            {isConnected ? "Start Interview" : "Connecting..."}
           </button>
         </div>
+      ) : (
+        <div className="flex-1 flex flex-col space-y-12">
+          {/* Question Display */}
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm min-h-[160px] flex flex-col justify-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1 h-full bg-slate-900" />
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
+              {phase === "greeting" ? "Interviewer is Speaking" : "Current Context"}
+            </h3>
+            <p className="text-slate-900 text-2xl font-medium leading-relaxed tracking-tight">
+              {currentQ.question}
+            </p>
+          </div>
+
+          {/* Interaction Visualizer */}
+          <div className="flex flex-col items-center justify-center space-y-6">
+            <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-700 shadow-2xl relative ${
+              phase === "greeting" ? "bg-indigo-600 scale-110" : 
+              phase === "listening" ? "bg-red-600 scale-110" : 
+              "bg-slate-900"
+            }`}>
+              {/* Outer Waves */}
+              {(phase === "greeting" || phase === "listening") && (
+                <>
+                  <div className={`absolute inset-0 rounded-full border-4 animate-ping opacity-20 ${phase === "greeting" ? "border-indigo-100" : "border-red-100"}`} />
+                  <div className={`absolute inset-[-20%] rounded-full border-2 animate-pulse opacity-40 ${phase === "greeting" ? "border-indigo-50" : "border-red-50"}`} />
+                </>
+              )}
+
+              {phase === "greeting" && (
+                <div className="flex gap-1.5 items-end h-8">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="w-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: `${i * 0.1}s`, height: `${40 + Math.random() * 60}%` }} />
+                  ))}
+                </div>
+              )}
+              {phase === "listening" && (
+                <div className="w-6 h-6 rounded-full bg-white animate-pulse" />
+              )}
+              {phase === "processing" && (
+                <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+              )}
+            </div>
+            
+            <div className="text-center">
+              <span className={`text-xs font-bold uppercase tracking-[0.3em] transition-colors duration-500 ${
+                phase === "greeting" ? "text-indigo-600" : 
+                phase === "listening" ? "text-red-600" : 
+                "text-slate-400"
+              }`}>
+                {phase === "greeting" ? "AI Interviewer Speaking" : 
+                 phase === "listening" ? "Listening to You" : 
+                 phase === "processing" ? "Agent is Thinking..." : 
+                 "Initializing"}
+              </span>
+            </div>
+          </div>
+
+          {/* Real-Time Transcript Area */}
+          <div className="min-h-[140px] flex flex-col items-center space-y-4">
+            {error ? (
+              <div className="p-4 bg-red-50 text-red-600 text-sm font-medium rounded-2xl animate-in shake">
+                {error}
+              </div>
+            ) : phase === "listening" || phase === "processing" ? (
+              <>
+                <div className="max-w-md text-center text-slate-500 text-lg italic animate-in fade-in">
+                  {transcript || liveTranscript || "Speak naturally, I'm listening..."}
+                </div>
+                
+                {phase === "listening" && (
+                  <div className="flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4">
+                    <button
+                      onClick={() => {
+                        setPhase("processing");
+                        stopRecording();
+                        stopListening();
+                        sendMessage({ type: "end_of_turn" });
+                      }}
+                      className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-full shadow-lg hover:bg-slate-800 transition-all"
+                    >
+                      Finish Speaking
+                    </button>
+                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
+                      Manual Fallback if silence not detected
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+            
+            {/* Debug Info */}
+            <div className="mt-4 flex gap-4 text-[8px] font-mono text-slate-300 uppercase">
+              <span>Phase: {phase}</span>
+              <span>Transcript Len: {transcript.length}</span>
+              <span>WS: {isConnected ? "Open" : "Closed"}</span>
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* Progress Footer */}
+      <div className="mt-auto pt-12">
+        <div className="max-w-xl mx-auto">
+          <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+            <span>Interview Progress</span>
+            <span>{Math.round(((currentQuestionIndex + 1) / totalPlanned) * 100)}%</span>
+          </div>
+          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+            <div 
+              className="h-full bg-slate-900 transition-all duration-1000 ease-out shadow-lg" 
+              style={{ width: `${((currentQuestionIndex + 1) / totalPlanned) * 100}%` }} 
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

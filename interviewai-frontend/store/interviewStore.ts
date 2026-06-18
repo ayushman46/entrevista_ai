@@ -27,6 +27,7 @@ interface InterviewStore {
   startInterview: (id: string, firstQuestion: string, topic: string, total: number, audioUrl?: string) => void;
   addQuestion: (question: string, topic: string, expectedConcepts: string[], audioUrl?: string) => void;
   recordAnswer: (index: number, answer: string) => void;
+  setQuestionIndex: (index: number) => void;
   setStatus: (status: InterviewStatus) => void;
   setFinalReport: (report: FinalReport) => void;
   reset: () => void;
@@ -69,8 +70,8 @@ export const useInterviewStore = create<InterviewStore>()(
           questions: state.questions.map((q, i) =>
             i === index ? { ...q, answer } : q
           ),
-          currentQuestionIndex: index + 1,
         })),
+      setQuestionIndex: (index) => set({ currentQuestionIndex: index }),
       setStatus: (status) => set({ status }),
       setFinalReport: (report) => set({ finalReport: report, status: "completed" }),
       reset: () => set(initialState),

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.config import settings
-from app.api import resume, interview, report
+from app.api import resume, interview, report, websocket
 
 app = FastAPI(
     title="InterviewAI",
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(resume.router, prefix="/resume", tags=["Resume"])
 app.include_router(interview.router, prefix="/interview", tags=["Interview"])
 app.include_router(report.router, prefix="/report", tags=["Report"])
+app.include_router(websocket.router, tags=["WebSocket"])
 
 # Serve generated reports and audio as static files
 app.mount("/reports", StaticFiles(directory=settings.REPORT_DIR), name="reports")

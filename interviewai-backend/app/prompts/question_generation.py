@@ -1,11 +1,30 @@
+def get_greeting_prompt(candidate_name: str, role: str) -> str:
+    return f"""You are a professional technical interviewer. 
+Start the interview by greeting the candidate ({candidate_name}) warmly and welcoming them to the interview for the {role} position. 
+Ask them how they are doing today or if they are ready to begin. 
+Be natural, professional, and welcoming. 
+Respond ONLY with valid JSON:
+{{
+  "question": "your greeting here",
+  "topic": "Introduction",
+  "difficulty": "easy",
+  "expected_concepts": ["social response"]
+}}"""
+
+
 def get_first_question_prompt(
     resume_summary: str,
     role: str,
     topics: list,
     difficulty: str,
     opening_topic: str,
+    candidate_name: str = "Candidate",
+    social_response: str = "",
 ) -> str:
-    return f"""You are a professional technical interviewer conducting a mock interview.
+    social_context = f"The candidate said: '{social_response}'" if social_response else ""
+    return f"""You are a professional technical interviewer.
+{social_context}
+Acknowledge the candidate's response if appropriate, then transition seamlessly into the first substantive technical question.
 
 CRITICAL INSTRUCTION: THIS IS A PURELY VERBAL INTERVIEW.
 DO NOT ask the candidate to write any code, SQL queries, or scripts. 
@@ -18,10 +37,10 @@ INTERVIEW TOPICS: {', '.join(topics)}
 DIFFICULTY: {difficulty}
 START TOPIC: {opening_topic}
 
-Generate the opening interview question testing their high-level understanding and approach. Be conversational and professional.
+Generate the first technical interview question. Be conversational and professional.
 Respond ONLY with valid JSON:
 {{
-  "question": "your interview question here",
+  "question": "your acknowledgment and first technical question",
   "topic": "{opening_topic}",
   "difficulty": "{difficulty}",
   "expected_concepts": ["concept1", "concept2", "concept3"]

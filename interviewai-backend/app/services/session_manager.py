@@ -57,30 +57,45 @@ class SessionManager:
         self._save(interview_id, session)
         return session
 
-    def add_question_answer(
+    def add_question(self, interview_id: str, question: str, topic: str) -> dict:
+        session = self.get_session(interview_id)
+        if not session:
+            raise ValueError(f"Session {interview_id} not found")
+        
+        session["questions"].append({
+            "index": len(session["questions"]),
+            "question": question,
+            "answer": "",
+            "topic": topic,
+            "timestamp": datetime.utcnow().isoformat(),
+        })
+        session["updated_at"] = datetime.utcnow().isoformat()
+        self._save(interview_id, session)
+        return session
+
+    def record_answer(
         self,
         interview_id: str,
-        question: str,
         answer: str,
         evaluation: dict,
-        topic: str,
     ) -> dict:
         session = self.get_session(interview_id)
         if not session:
             raise ValueError(f"Session {interview_id} not found")
 
-        session["questions"].append({
-            "index": len(session["questions"]),
-            "question": question,
-            "answer": answer,
-            "topic": topic,
-            "timestamp": datetime.utcnow().isoformat(),
-        })
+        if not session["questions"]:
+            raise ValueError("No questions found to answer")
+
+        # Update the last question with the answer
+        last_q = session["questions"][-1]
+        last_q["answer"] = answer
+        
         session["evaluations"].append(evaluation)
         session["current_question_index"] = len(session["questions"])
 
         # Update context for adaptive questioning
         ctx = session["interview_context"]
+        topic = last_q["topic"]
         if topic not in ctx["topics_covered"]:
             ctx["topics_covered"].append(topic)
         if topic in ctx["remaining_topics"]:
@@ -99,7 +114,7 @@ class SessionManager:
         elif diff_change == "decrease" and ctx["current_difficulty"] != "easy":
             ctx["current_difficulty"] = "easy" if ctx["current_difficulty"] == "medium" else "medium"
 
-        ctx["last_question"] = question
+        ctx["last_question"] = last_q["question"]
         session["updated_at"] = datetime.utcnow().isoformat()
         self._save(interview_id, session)
         return session
