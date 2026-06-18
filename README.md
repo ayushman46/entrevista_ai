@@ -1,53 +1,60 @@
-ENTREVISTA AI THE ULTIMATE INTERVIEW PREPARATION PLATFORM
+# ENTREVISTA AI 
 
-INTRODUCTION
-Entrevista AI is a cutting edge artificial intelligence powered platform designed to revolutionize the way candidates prepare for technical interviews. By leveraging advanced machine learning models and real time audio processing this system provides an immersive and highly realistic interview experience that adapts to the performance of the user.
+## THE NEXT GENERATION OF TECHNICAL INTERVIEW MASTERY
 
-CORE ARCHITECTURE
-The system is built upon a robust and scalable architecture that seamlessly integrates frontend and backend components to deliver a fluid user experience.
+### ELEVATE YOUR CAREER WITH ARTIFICIAL INTELLIGENCE
+Entrevista AI is not just a tool. It is a sophisticated high performance platform engineered to transform the way software engineers prepare for the most demanding technical interviews in the industry. By combining real time neural processing with advanced adaptive learning we provide an experience that is indistinguishable from a real world senior level technical assessment.
 
-FRONTEND LAYER
-The user interface is crafted using Next.js and TypeScript and Tailwind CSS providing a responsive and intuitive dashboard. It manages audio capture and streaming via secure WebSockets ensuring low latency communication with the server. The frontend state is managed through Zustand allowing for efficient data flow and a persistent interview context.
+---
 
-BACKEND LAYER
-The backend is powered by FastAPI a high performance Python framework. It serves as the orchestrator for several key services including session management and real time data processing.
+## CORE CAPABILITIES
 
-SPEECH TO TEXT SERVICE
-We utilize the Groq Whisper model for exceptionally accurate and fast transcription of candidate responses. This allows the system to understand spoken language with high precision even in various acoustic environments.
+### PRECISION SPEECH RECOGNITION
+Our system integrates the Groq Whisper model to achieve industry leading accuracy in voice transcription. This ensures that every nuance of your technical explanation is captured and analyzed with perfect clarity regardless of your environment.
 
-INTELLIGENT INTERVIEW ENGINE
-At the heart of Entrevista AI is an adaptive interview engine. This engine evaluates candidate answers using state of the art Large Language Models such as DeepSeek and Gemini. It analyzes technical accuracy and communication skills then determines the optimal next question based on the performance of the candidate. This ensures that every interview is unique and challenging.
+### ADAPTIVE INTELLIGENCE ENGINE
+The heart of the platform is an autonomous interviewer powered by state of the art Large Language Models. Unlike static question banks Entrevista AI listens to your responses and dynamically adjusts the difficulty and direction of the conversation. If you show mastery it pushes you further. If you struggle it provides a path to recovery just like a human interviewer.
 
-LLM ORCHESTRATOR
-The LLM Orchestrator is a sophisticated component that manages communication with multiple AI providers. It supports DeepSeek and Gemini and Groq ensuring high availability and optimal performance. By abstracting the provider logic the system can easily switch between different models to find the best balance between speed and intelligence.
+### NEURAL TEXT TO SPEECH
+Experience a natural and professional dialogue with our high fidelity voice synthesis. Powered by Edge TTS the system delivers questions and feedback in a clear human like tone that reduces the stress of automated testing and builds true conversational confidence.
 
-EVALUATION ENGINE
-The Evaluation Engine is responsible for scoring candidate responses. It looks for specific technical concepts and evaluates the clarity of the explanation. This engine provides granular feedback which is later compiled into the final report. It uses a set of predefined prompts to ensure consistency and fairness in every evaluation.
+---
 
-AUDIO SERVICE
-The Audio Service handles the conversion between speech and text. It manages the temporary storage of audio chunks and coordinates with the Groq Whisper API for transcription. It also interfaces with Edge TTS to produce high quality audio files for the interviewer voice.
+## ARCHITECTURAL EXCELLENCE
 
-TEXT TO SPEECH SERVICE
-To complete the immersive experience the system uses Edge TTS to generate natural sounding voices for the AI interviewer. This provides the candidate with clear and professional verbal feedback and questions.
+### THE FRONTEND EXPERIENCE
+Built with Next.js and TypeScript the interface is designed for maximum focus and minimal friction. Secure WebSockets enable low latency streaming of audio data ensuring that the interaction feels instantaneous and fluid.
 
-SESSION AND DATA MANAGEMENT
-The system maintains interview continuity using a local SQLite database for active sessions. This allows for detailed tracking of the progress of the interview and the generation of comprehensive performance reports.
+### THE BACKEND ORCHESTRATOR
+Our FastAPI backend serves as a high speed nervous system coordinating between multiple AI providers including DeepSeek and Gemini and Groq. This multi model approach guarantees that you are always interacting with the most capable intelligence available.
 
-PRODUCT WORKFLOW
-1. Resume Submission. The journey begins when the candidate uploads their resume. The system parses the document to understand the background and expertise of the candidate.
-2. Adaptive Questioning. Based on the resume and selected role the AI generates a personalized interview plan. Questions are delivered verbally and the system listens for the response.
-3. Real Time Feedback. As the interview progresses the engine evaluates every answer providing the candidate with a sense of their performance and adjusting the difficulty level dynamically.
-4. Final Evaluation. Upon completion the system generates a detailed report in PDF format. This report covers technical scores and communication metrics and areas for improvement.
+---
 
-TECHNICAL STACK
-Frontend. Next.js and TypeScript and Tailwind CSS and Zustand.
-Backend. FastAPI and Python.
-AI Models. DeepSeek and Gemini and Groq Whisper.
-Voice. Edge TTS.
-Database. SQLite.
+## THE PRODUCT WORKFLOW
 
-WHY ENTREVISTA AI
-Entrevista AI is more than just a tool it is a comprehensive solution for career growth. It removes the anxiety of interviews by providing a safe and constructive environment for practice. Whether you are a junior developer or a senior architect this platform scales to your level and helps you achieve your professional goals.
+### STEP ONE RESUME ANALYSIS
+The journey begins with an intelligent scan of your professional background. The system extracts your core competencies to build a custom interview persona that matches your target role.
 
-GITHUB REPOSITORY
-You can find the project at https://github.com/ayushman46/entrevista_ai
+### STEP TWO THE LIVE INTERVIEW
+Engage in a full technical deep dive. The AI interviewer will challenge your architectural decisions and coding logic and problem solving skills through a verbal interface.
+
+### STEP THREE COMPREHENSIVE ANALYTICS
+Upon completion the system generates a detailed PDF report. This is not just a score. It is a roadmap for your growth covering technical depth and communication style and specific areas for improvement.
+
+---
+
+## WHY CHOOSE ENTREVISTA AI
+
+### FOR INDIVIDUALS
+Break through the ceiling of your current role. Practice in a high stakes environment without the risk and receive the honest feedback you need to land your dream job at top tier technology companies.
+
+### FOR ORGANIZATIONS
+Standardize your internal technical assessments and provide your engineering teams with a powerful tool for continuous professional development.
+
+---
+
+## JOIN THE FUTURE OF INTERVIEWING
+
+Entrevista AI represents the convergence of human expertise and machine intelligence. 
+
+Visit the official repository at https://github.com/ayushman46/entrevista_ai

@@ -2,11 +2,10 @@ interviewai-frontend/node_modules/
 interviewai-backend/venv/
 interviewai-backend/sessions/*.db
 interviewai-backend/.env
-REPORT.md
-PRODUCT_PITCH.md
-ARCHITECTURE.md
-ARCHITECTURE_V2.md
-prompt.md
+
+# Ignore all markdown files except README
+*.md
+!README.md
 
 # Python
 __pycache__/
@@ -23,4 +22,3 @@ interviewai-frontend/build/
 # Audio/Uploads
 interviewai-backend/uploads/
 interviewai-backend/reports/
-
