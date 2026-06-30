@@ -1,60 +1,61 @@
-# ENTREVISTA AI 
+# InterviewAI technical screening platform
 
-## THE NEXT GENERATION OF TECHNICAL INTERVIEW MASTERY
-
-### ELEVATE YOUR CAREER WITH ARTIFICIAL INTELLIGENCE
-Entrevista AI is not just a tool. It is a sophisticated high performance platform engineered to transform the way software engineers prepare for the most demanding technical interviews in the industry. By combining real time neural processing with advanced adaptive learning we provide an experience that is indistinguishable from a real world senior level technical assessment.
+InterviewAI is an enterprise grade autonomous technical screening platform designed to replace the time consuming initial phone screen. By utilizing adaptive voice artificial intelligence and context aware resume matching, the system conducts realistic verbal mock assessments and delivers deep candidate diagnostic reports to reduce recruiter overhead and save engineering hours.
 
 ---
 
-## CORE CAPABILITIES
+## Value proposition for recruiting and engineering teams
 
-### PRECISION SPEECH RECOGNITION
-Our system integrates the Groq Whisper model to achieve industry leading accuracy in voice transcription. This ensures that every nuance of your technical explanation is captured and analyzed with perfect clarity regardless of your environment.
+- Save engineering screening time
+Eliminate the need for senior engineers to conduct basic technical screening rounds. Let InterviewAI identify candidate capabilities before you schedule a live loop.
 
-### ADAPTIVE INTELLIGENCE ENGINE
-The heart of the platform is an autonomous interviewer powered by state of the art Large Language Models. Unlike static question banks Entrevista AI listens to your responses and dynamically adjusts the difficulty and direction of the conversation. If you show mastery it pushes you further. If you struggle it provides a path to recovery just like a human interviewer.
+- Real time voice stream
+Candidates speak directly in the web browser. Low latency WebSocket connections stream audio chunks dynamically to the backend for sub second speech processing.
 
-### NEURAL TEXT TO SPEECH
-Experience a natural and professional dialogue with our high fidelity voice synthesis. Powered by Edge TTS the system delivers questions and feedback in a clear human like tone that reduces the stress of automated testing and builds true conversational confidence.
+- High fidelity assessment
+Grade candidates fairly and objectively. Assessments evaluate technical accuracy, communication clarity, and candidate confidence, helping recruiters identify top tier talent.
 
----
-
-## ARCHITECTURAL EXCELLENCE
-
-### THE FRONTEND EXPERIENCE
-Built with Next.js and TypeScript the interface is designed for maximum focus and minimal friction. Secure WebSockets enable low latency streaming of audio data ensuring that the interaction feels instantaneous and fluid.
-
-### THE BACKEND ORCHESTRATOR
-Our FastAPI backend serves as a high speed nervous system coordinating between multiple AI providers including DeepSeek and Gemini and Groq. This multi model approach guarantees that you are always interacting with the most capable intelligence available.
+- Actionable diagnostics
+Receive detailed PDF assessment reports including overall performance scores, key strengths, areas for improvement, and role specific hiring recommendations.
 
 ---
 
-## THE PRODUCT WORKFLOW
+## Technical stack and capabilities
 
-### STEP ONE RESUME ANALYSIS
-The journey begins with an intelligent scan of your professional background. The system extracts your core competencies to build a custom interview persona that matches your target role.
+- Frontend
+Next.js 14 App Router, TypeScript, and Zustand for state management. Provides a conversational chat interface with real time web speech transcription.
 
-### STEP TWO THE LIVE INTERVIEW
-Engage in a full technical deep dive. The AI interviewer will challenge your architectural decisions and coding logic and problem solving skills through a verbal interface.
+- Backend
+FastAPI Python application server providing concurrent WebSocket connections and local session storage using SQLAlchemy and SQLite.
 
-### STEP THREE COMPREHENSIVE ANALYTICS
-Upon completion the system generates a detailed PDF report. This is not just a score. It is a roadmap for your growth covering technical depth and communication style and specific areas for improvement.
+- Artificial intelligence orchestrator
+Integrates Groq Whisper for speech to text transcription. Routes evaluations and question generation through a fallback chain prioritizing Groq, followed by DeepSeek, and Google Gemini as fallbacks.
 
----
+- Voice synthesis
+Uses Edge TTS to generate natural, human like voice questions with high quality neural models, creating a stress free conversational mock assessment.
 
-## WHY CHOOSE ENTREVISTA AI
-
-### FOR INDIVIDUALS
-Break through the ceiling of your current role. Practice in a high stakes environment without the risk and receive the honest feedback you need to land your dream job at top tier technology companies.
-
-### FOR ORGANIZATIONS
-Standardize your internal technical assessments and provide your engineering teams with a powerful tool for continuous professional development.
+- PDF report generator
+Generates standard multi page executive summary sheets with ReportLab containing candidate data, timelines, and hiring recommendations.
 
 ---
 
-## JOIN THE FUTURE OF INTERVIEWING
+## Local setup and deployment
 
-Entrevista AI represents the convergence of human expertise and machine intelligence. 
+To set up the platform locally:
 
-Visit the official repository at https://github.com/ayushman46/entrevista_ai
+1. Clone the repository and navigate to the project directory:
+   cd AI_interview
+
+2. Start the backend:
+   cd interviewai-backend
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload
+
+3. Start the frontend:
+   cd ../interviewai-frontend
+   npm install
+   npm run dev
+
+4. Run tests:
+   cd ../interviewai-backend
+   PYTHONPATH=. ./venv/bin/pytest
