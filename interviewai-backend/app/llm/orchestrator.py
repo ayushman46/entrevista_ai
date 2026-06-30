@@ -15,9 +15,9 @@ class LLMOrchestrator:
 
     def __init__(self):
         self.providers = [
-            ("gemini", GeminiProvider()),
             ("groq", GroqProvider()),
             ("deepseek", DeepSeekProvider()),
+            ("gemini", GeminiProvider()),
         ]
 
     async def generate(

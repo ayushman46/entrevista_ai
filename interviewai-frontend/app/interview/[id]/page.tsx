@@ -37,6 +37,18 @@ export default function InterviewPage() {
   
   const currentQ = questions[currentQuestionIndex];
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync ref to check the current phase in asynchronous handlers
+  const phaseRef = useRef(phase);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  // Handle auto-scroll to the bottom of the conversation
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [questions, phase, transcript, liveTranscript]);
 
   // WebSocket message handler
   const handleWSMessage = useCallback((msg: any) => {
@@ -65,14 +77,13 @@ export default function InterviewPage() {
               setPhase("listening");
               resetTranscript();
               startListening();
-              startRecording(sendAudio);
+              // startRecording is already running; its output chunks will now be sent
             });
           } else {
             // No audio URL, go straight to listening
             setPhase("listening");
             resetTranscript();
             startListening();
-            startRecording(sendAudio);
           }
         }
       }
@@ -82,14 +93,21 @@ export default function InterviewPage() {
         setPhase("listening");
         resetTranscript();
         startListening();
-        startRecording(sendAudio);
+        // Keep recording active
       } else {
         setPhase("listening"); // Attempt to recover
       }
     }
-  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startRecording, startListening, resetTranscript]);
+  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startListening, resetTranscript]);
 
   const { isConnected, sendAudio, sendMessage } = useInterviewWebSocket(interviewId, handleWSMessage);
+
+  // Conditional audio sender to completely discard chunks while AI is speaking
+  const handleSendAudio = useCallback((chunk: Blob) => {
+    if (phaseRef.current === "listening") {
+      sendAudio(chunk);
+    }
+  }, [sendAudio]);
 
   // VAD logic: Detect end of user speaking
   useEffect(() => {
@@ -100,7 +118,6 @@ export default function InterviewPage() {
       silenceTimerRef.current = setTimeout(async () => {
         // Stop recording/listening and signal turn end
         setPhase("processing");
-        await stopRecording();
         stopListening();
         sendMessage({ type: "end_of_turn", transcript });
       }, 2500); // 2.5 seconds of silence
@@ -109,7 +126,7 @@ export default function InterviewPage() {
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [transcript, phase, stopRecording, stopListening, sendMessage]);
+  }, [transcript, phase, stopListening, sendMessage]);
 
   const startInterview = () => {
     if (!currentQ) return;
@@ -119,19 +136,23 @@ export default function InterviewPage() {
     }
     
     setPhase("greeting");
-    // Start mic/recognition immediately to ensure user gesture context is captured
-    // but the system will ignore input until the AI finishes speaking
-    startListening();
-    startRecording(sendAudio);
+    setError(null);
+    resetTranscript();
+
+    // Start mic capture immediately to capture browser permission context,
+    // but handleSendAudio will discard chunks until phase is "listening"
+    startRecording(handleSendAudio);
 
     if (currentQ.audioUrl) {
       playAudio(currentQ.audioUrl, () => {
         setPhase("listening");
         resetTranscript();
+        startListening(); // Only start transcribing locally when AI is done
       });
     } else {
       setPhase("listening");
       resetTranscript();
+      startListening();
     }
   };
 
@@ -146,166 +167,244 @@ export default function InterviewPage() {
 
   if (!currentQ) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-slate-900 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-slate-500 font-medium">Connecting to Interviewer...</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-950 text-white rounded-3xl p-8 border border-slate-800">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-400 font-medium">Connecting to Interviewer...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12 min-h-[85vh] flex flex-col">
+    <div className="max-w-3xl mx-auto px-6 py-8 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950/20 text-white rounded-3xl border border-slate-800/80 shadow-2xl min-h-[85vh] flex flex-col justify-between">
       {/* Header */}
-      <div className="flex items-center justify-between mb-12 border-b border-slate-100 pb-6">
+      <div className="flex items-center justify-between mb-8 border-b border-slate-800/60 pb-6">
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Real-Time Technical Interview</h2>
+          <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+            Adaptive Technical Assessment
+          </h2>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Server</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
+              <span className="text-[9px] font-bold text-slate-400 uppercase">Stream</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${isRecording ? "bg-green-500" : "bg-slate-300"}`} />
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Mic</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? "bg-green-500 animate-pulse" : "bg-slate-500"}`} />
+              <span className="text-[9px] font-bold text-slate-400 uppercase">Mic</span>
             </div>
-            <span className="text-slate-900 font-medium capitalize ml-2">{role.replace("_", " ")}</span>
+            <span className="text-slate-300 text-xs font-medium capitalize ml-2 bg-slate-800/50 px-2.5 py-0.5 rounded-full border border-slate-700/50">
+              {role.replace("_", " ")}
+            </span>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-slate-900">{currentQuestionIndex + 1}<span className="text-slate-300 text-lg">/{totalPlanned}</span></div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase">Turn</div>
+          <div className="text-2xl font-semibold tracking-tight text-white">
+            {currentQuestionIndex + 1}
+            <span className="text-slate-500 text-sm font-normal"> / {totalPlanned}</span>
+          </div>
+          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Active Turn</div>
         </div>
       </div>
 
       {phase === "idle" ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in duration-1000">
-          <div className="w-24 h-24 bg-slate-900 rounded-full flex items-center justify-center shadow-xl">
-            <svg className="w-10 h-10 text-white translate-x-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-12 space-y-8 animate-in fade-in duration-700">
+          <div className="w-20 h-20 bg-indigo-600/10 border border-indigo-500/20 rounded-full flex items-center justify-center shadow-inner relative group">
+            <div className="absolute inset-0 rounded-full bg-indigo-500/10 blur-xl group-hover:bg-indigo-500/20 transition-all" />
+            <svg className="w-8 h-8 text-indigo-400 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Join the Conversation</h1>
-            <p className="text-slate-500 max-w-sm">The interview will start with a greeting. Simply speak naturally as you would in a real interview.</p>
+            <h1 className="text-3xl font-semibold tracking-tight text-white mb-3">Begin Mock Assessment</h1>
+            <p className="text-slate-400 max-w-md mx-auto text-sm leading-relaxed">
+              We'll start with a warm greeting to check your connection. Respond naturally as you would to a live recruiter.
+            </p>
           </div>
           <button 
             onClick={startInterview} 
             disabled={!isConnected}
-            className={`px-12 py-4 text-lg rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all ${
-              isConnected ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+            className={`px-8 py-3.5 text-sm rounded-full font-bold shadow-lg transition-all ${
+              isConnected 
+                ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/10 hover:shadow-indigo-600/20 transform hover:-translate-y-0.5" 
+                : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
             }`}
           >
-            {isConnected ? "Start Interview" : "Connecting..."}
+            {isConnected ? "Start Interview" : "Establishing Stream..."}
           </button>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col space-y-12">
-          {/* Question Display */}
-          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm min-h-[160px] flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-slate-900" />
-            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-4">
-              {phase === "greeting" ? "Interviewer is Speaking" : "Current Context"}
-            </h3>
-            <p className="text-slate-900 text-2xl font-medium leading-relaxed tracking-tight">
-              {currentQ.question}
-            </p>
+        <div className="flex-1 flex flex-col justify-between space-y-6">
+          {/* Conversational Dialogue Window */}
+          <div className="flex-1 overflow-y-auto space-y-6 max-h-[360px] min-h-[220px] pr-2 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+            {questions.map((q, idx) => {
+              const isCurrent = idx === currentQuestionIndex;
+              // If it's the current question and the AI hasn't spoken yet or we are waiting, show it at the bottom actively
+              if (isCurrent && phase !== "completed") return null;
+
+              return (
+                <div key={idx} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  {/* AI Bubble */}
+                  <div className="flex gap-3 items-start">
+                    <div className="w-8 h-8 rounded-full bg-indigo-950 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 shrink-0 shadow-md">
+                      AI
+                    </div>
+                    <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-sm">
+                      <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                        Topic: {q.topic}
+                      </span>
+                      <p className="text-slate-200 text-sm leading-relaxed">{q.question}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Candidate Bubble */}
+                  {q.answer && (
+                    <div className="flex gap-3 items-start justify-end">
+                      <div className="bg-indigo-950/40 border border-indigo-900/40 p-4 rounded-2xl rounded-tr-none max-w-[85%] text-right shadow-sm">
+                        <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                          You
+                        </span>
+                        <p className="text-slate-300 text-sm leading-relaxed italic">
+                          "{q.answer}"
+                        </p>
+                      </div>
+                      <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md shadow-indigo-600/10">
+                        YOU
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Current Active Bubble */}
+            {phase !== "completed" && currentQ && (
+              <div className="space-y-4 animate-in fade-in duration-500">
+                <div className="flex gap-3 items-start">
+                  <div className="w-8 h-8 rounded-full bg-indigo-900 border border-indigo-500 flex items-center justify-center text-[10px] font-bold text-indigo-200 shrink-0 shadow-lg animate-pulse">
+                    AI
+                  </div>
+                  <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl rounded-tl-none max-w-[85%] shadow-md relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
+                    <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                      Current Topic: {currentQ.topic}
+                    </span>
+                    <p className="text-white text-base font-medium leading-relaxed">
+                      {currentQ.question}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Candidate Active Speaking Bubble */}
+                {(phase === "listening" || phase === "processing") && (
+                  <div className="flex gap-3 items-start justify-end animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="bg-slate-900/40 border border-slate-800/60 p-4 rounded-2xl rounded-tr-none max-w-[85%] text-right min-w-[120px]">
+                      <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1.5">
+                        {phase === "listening" ? "Listening..." : "Evaluating..."}
+                      </span>
+                      <p className="text-slate-300 text-sm leading-relaxed italic">
+                        {transcript || liveTranscript || "Speak naturally..."}
+                      </p>
+                    </div>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md ${
+                      phase === "listening" ? "bg-red-600 animate-pulse shadow-red-600/15" : "bg-indigo-600 animate-spin"
+                    }`}>
+                      {phase === "listening" ? "REC" : "•••"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Interaction Visualizer */}
-          <div className="flex flex-col items-center justify-center space-y-6">
-            <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-700 shadow-2xl relative ${
-              phase === "greeting" ? "bg-indigo-600 scale-110" : 
-              phase === "listening" ? "bg-red-600 scale-110" : 
-              "bg-slate-900"
+          {/* Central Dial & Visualizer Controls */}
+          <div className="flex flex-col items-center justify-center border-t border-slate-900/60 pt-6">
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center transition-all duration-700 shadow-2xl relative border ${
+              phase === "greeting" ? "bg-indigo-950/80 border-indigo-500 scale-105" : 
+              phase === "listening" ? "bg-red-950/80 border-red-500 scale-105" : 
+              "bg-slate-900 border-slate-800"
             }`}>
-              {/* Outer Waves */}
-              {(phase === "greeting" || phase === "listening") && (
+              {/* Outer Pulse rings */}
+              {phase === "greeting" && (
                 <>
-                  <div className={`absolute inset-0 rounded-full border-4 animate-ping opacity-20 ${phase === "greeting" ? "border-indigo-100" : "border-red-100"}`} />
-                  <div className={`absolute inset-[-20%] rounded-full border-2 animate-pulse opacity-40 ${phase === "greeting" ? "border-indigo-50" : "border-red-50"}`} />
+                  <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
+                  <div className="absolute inset-[-15%] rounded-full border border-indigo-400/10 animate-pulse" />
+                </>
+              )}
+              {phase === "listening" && (
+                <>
+                  <div className="absolute inset-0 rounded-full border-4 border-red-500/20 animate-ping" />
+                  <div className="absolute inset-[-15%] rounded-full border border-red-400/10 animate-pulse" />
                 </>
               )}
 
               {phase === "greeting" && (
-                <div className="flex gap-1.5 items-end h-8">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="w-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: `${i * 0.1}s`, height: `${40 + Math.random() * 60}%` }} />
+                <div className="flex gap-1 items-end h-6">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="w-1 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s`, height: `${40 + Math.random() * 60}%` }} />
                   ))}
                 </div>
               )}
               {phase === "listening" && (
-                <div className="w-6 h-6 rounded-full bg-white animate-pulse" />
+                <div className="w-4 h-4 rounded-full bg-red-500 animate-ping" />
               )}
               {phase === "processing" && (
-                <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
               )}
             </div>
             
-            <div className="text-center">
-              <span className={`text-xs font-bold uppercase tracking-[0.3em] transition-colors duration-500 ${
-                phase === "greeting" ? "text-indigo-600" : 
-                phase === "listening" ? "text-red-600" : 
-                "text-slate-400"
+            <div className="text-center mt-3 mb-4">
+              <span className={`text-[10px] font-bold uppercase tracking-[0.25em] transition-colors duration-500 ${
+                phase === "greeting" ? "text-indigo-400 animate-pulse" : 
+                phase === "listening" ? "text-red-400" : 
+                phase === "processing" ? "text-indigo-400" : 
+                "text-slate-500"
               }`}>
                 {phase === "greeting" ? "AI Interviewer Speaking" : 
-                 phase === "listening" ? "Listening to You" : 
-                 phase === "processing" ? "Agent is Thinking..." : 
-                 "Initializing"}
+                 phase === "listening" ? "Microphone Active" : 
+                 phase === "processing" ? "Analyzing Response" : 
+                 "System Idle"}
               </span>
             </div>
-          </div>
 
-          {/* Real-Time Transcript Area */}
-          <div className="min-h-[140px] flex flex-col items-center space-y-4">
-            {error ? (
-              <div className="p-4 bg-red-50 text-red-600 text-sm font-medium rounded-2xl animate-in shake">
-                {error}
-              </div>
-            ) : phase === "listening" || phase === "processing" ? (
-              <>
-                <div className="max-w-md text-center text-slate-500 text-lg italic animate-in fade-in">
-                  {transcript || liveTranscript || "Speak naturally, I'm listening..."}
+            {/* Error alerts / validation messages */}
+            <div className="w-full max-w-md min-h-[48px] flex flex-col items-center justify-center">
+              {error ? (
+                <div className="px-4 py-2 bg-red-950/40 border border-red-900/60 text-red-200 text-xs font-medium rounded-xl animate-in shake">
+                  ⚠️ {error}
                 </div>
-                
-                {phase === "listening" && (
-                  <div className="flex flex-col items-center gap-4 animate-in slide-in-from-bottom-4">
-                    <button
-                      onClick={() => {
-                        setPhase("processing");
-                        stopRecording();
-                        stopListening();
-                        sendMessage({ type: "end_of_turn", transcript });
-                      }}
-                      className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-full shadow-lg hover:bg-slate-800 transition-all"
-                    >
-                      Finish Speaking
-                    </button>
-                    <div className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
-                      Manual Fallback if silence not detected
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : null}
-            
-            {/* Debug Info */}
-            <div className="mt-4 flex gap-4 text-[8px] font-mono text-slate-300 uppercase">
-              <span>Phase: {phase}</span>
-              <span>Transcript Len: {transcript.length}</span>
-              <span>WS: {isConnected ? "Open" : "Closed"}</span>
+              ) : phase === "listening" ? (
+                <div className="flex flex-col items-center gap-2 animate-in slide-in-from-bottom-2 duration-300">
+                  <button
+                    onClick={() => {
+                      setPhase("processing");
+                      stopListening();
+                      sendMessage({ type: "end_of_turn", transcript });
+                    }}
+                    className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-full shadow-md transition-colors"
+                  >
+                    Finish Speaking
+                  </button>
+                  <span className="text-[9px] text-slate-500 uppercase tracking-wider">
+                    Manual submit if silence detection delays
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
       )}
 
       {/* Progress Footer */}
-      <div className="mt-auto pt-12">
+      <div className="mt-6 border-t border-slate-900/60 pt-6">
         <div className="max-w-xl mx-auto">
-          <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-            <span>Interview Progress</span>
+          <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+            <span>Interview Completion Progress</span>
             <span>{Math.round(((currentQuestionIndex + 1) / totalPlanned) * 100)}%</span>
           </div>
-          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
+          <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden shadow-inner border border-slate-800/20">
             <div 
-              className="h-full bg-slate-900 transition-all duration-1000 ease-out shadow-lg" 
+              className="h-full bg-gradient-to-r from-indigo-600 to-indigo-500 transition-all duration-1000 ease-out shadow-lg shadow-indigo-500/20" 
               style={{ width: `${((currentQuestionIndex + 1) / totalPlanned) * 100}%` }} 
             />
           </div>
