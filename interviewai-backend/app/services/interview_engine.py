@@ -94,14 +94,14 @@ async def evaluate_answer(
         }
         
         # Record the social answer
-        session_manager.record_answer(
+        session_manager.add_question_answer(
             interview_id=interview_id,
             answer=answer,
             evaluation=evaluation
         )
         
         # Add the first technical question to the session
-        session_manager.add_question(
+        session_manager.add_pending_question(
             interview_id=interview_id,
             question=first_q_data.get("question", ""),
             topic=first_q_data.get("topic", "Technical")
@@ -129,7 +129,7 @@ async def evaluate_answer(
     evaluation = json.loads(clean)
 
     # Record the answer
-    session_manager.record_answer(
+    session_manager.add_question_answer(
         interview_id=interview_id,
         answer=answer,
         evaluation=evaluation
@@ -143,18 +143,23 @@ async def evaluate_answer(
     question_count = len(updated_session["questions"])
     is_complete = question_count >= MAX_QUESTIONS
 
-    if not is_complete and not evaluation.get("follow_up_required"):
-        # Generate next question on a new topic
-        next_q_data = await get_next_question(interview_id, role)
-        evaluation["next_question"] = next_q_data.get("question", "")
-        evaluation["next_topic"] = next_q_data.get("topic", "")
-        evaluation["next_expected_concepts"] = next_q_data.get("expected_concepts", [])
-        
-        # Add the next question to the session
-        session_manager.add_question(
+    if not is_complete:
+        if not evaluation.get("follow_up_required"):
+            # Generate next question on a new topic
+            next_q_data = await get_next_question(interview_id, role)
+            evaluation["next_question"] = next_q_data.get("question", "")
+            evaluation["next_topic"] = next_q_data.get("topic", "")
+            evaluation["next_expected_concepts"] = next_q_data.get("expected_concepts", [])
+        else:
+            # Follow-up question is already generated in evaluation["next_question"]
+            evaluation["next_topic"] = topic
+            evaluation["next_expected_concepts"] = []
+
+        # Always pre-register the next question (follow-up OR new topic)
+        session_manager.add_pending_question(
             interview_id=interview_id,
             question=evaluation["next_question"],
-            topic=evaluation["next_topic"]
+            topic=evaluation.get("next_topic", topic)
         )
 
     return evaluation, is_complete

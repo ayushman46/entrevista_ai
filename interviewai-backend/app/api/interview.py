@@ -138,6 +138,8 @@ async def submit_answer_audio(
     try:
         # Transcribe with Groq
         answer_text = await transcribe_audio(temp_audio_path)
+    except Exception as e:
+        raise HTTPException(400, f"Speech transcription failed: {str(e)}")
     finally:
         if os.path.exists(temp_audio_path):
             os.remove(temp_audio_path)

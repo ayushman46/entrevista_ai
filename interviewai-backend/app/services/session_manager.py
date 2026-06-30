@@ -73,7 +73,25 @@ class SessionManager:
         self._save(interview_id, session)
         return session
 
-    def record_answer(
+    def add_pending_question(self, interview_id: str, question: str, topic: str) -> dict:
+        session = self.get_session(interview_id)
+        if not session:
+            raise ValueError(f"Session {interview_id} not found")
+        
+        index = len(session["questions"])
+        session["questions"].append({
+            "index": index,
+            "question": question,
+            "answer": None,
+            "topic": topic,
+            "timestamp": None,
+        })
+        session["current_question_index"] = index
+        session["updated_at"] = datetime.utcnow().isoformat()
+        self._save(interview_id, session)
+        return session
+
+    def add_question_answer(
         self,
         interview_id: str,
         answer: str,
@@ -86,16 +104,24 @@ class SessionManager:
         if not session["questions"]:
             raise ValueError("No questions found to answer")
 
-        # Update the last question with the answer
-        last_q = session["questions"][-1]
-        last_q["answer"] = answer
+        current_idx = session.get("current_question_index", len(session["questions"]) - 1)
+        if 0 <= current_idx < len(session["questions"]):
+            target_q = session["questions"][current_idx]
+        else:
+            target_q = session["questions"][-1]
+
+        if target_q.get("answer") is None:
+            target_q["answer"] = answer
+            target_q["timestamp"] = datetime.utcnow().isoformat()
+        else:
+            target_q["answer"] = answer
+            target_q["timestamp"] = datetime.utcnow().isoformat()
         
         session["evaluations"].append(evaluation)
-        session["current_question_index"] = len(session["questions"])
 
         # Update context for adaptive questioning
         ctx = session["interview_context"]
-        topic = last_q["topic"]
+        topic = target_q.get("topic", "General")
         if topic not in ctx["topics_covered"]:
             ctx["topics_covered"].append(topic)
         if topic in ctx["remaining_topics"]:
@@ -114,10 +140,18 @@ class SessionManager:
         elif diff_change == "decrease" and ctx["current_difficulty"] != "easy":
             ctx["current_difficulty"] = "easy" if ctx["current_difficulty"] == "medium" else "medium"
 
-        ctx["last_question"] = last_q["question"]
+        ctx["last_question"] = target_q.get("question", "")
         session["updated_at"] = datetime.utcnow().isoformat()
         self._save(interview_id, session)
         return session
+
+    def record_answer(
+        self,
+        interview_id: str,
+        answer: str,
+        evaluation: dict,
+    ) -> dict:
+        return self.add_question_answer(interview_id, answer, evaluation)
 
     def close_session(self, interview_id: str) -> dict:
         session = self.get_session(interview_id)

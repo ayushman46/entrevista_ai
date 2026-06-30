@@ -78,7 +78,14 @@ export default function InterviewPage() {
       }
     } else if (msg.type === "error") {
       setError(msg.message);
-      setPhase("listening"); // Attempt to recover
+      if (msg.code === "transcription_failed") {
+        setPhase("listening");
+        resetTranscript();
+        startListening();
+        startRecording(sendAudio);
+      } else {
+        setPhase("listening"); // Attempt to recover
+      }
     }
   }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startRecording, startListening, resetTranscript]);
 
@@ -95,7 +102,7 @@ export default function InterviewPage() {
         setPhase("processing");
         await stopRecording();
         stopListening();
-        sendMessage({ type: "end_of_turn" });
+        sendMessage({ type: "end_of_turn", transcript });
       }, 2500); // 2.5 seconds of silence
     }
     
@@ -265,7 +272,7 @@ export default function InterviewPage() {
                         setPhase("processing");
                         stopRecording();
                         stopListening();
-                        sendMessage({ type: "end_of_turn" });
+                        sendMessage({ type: "end_of_turn", transcript });
                       }}
                       className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-full shadow-lg hover:bg-slate-800 transition-all"
                     >

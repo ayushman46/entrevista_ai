@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 import aiofiles
+import tempfile
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.config import settings
 from app.services.session_manager import session_manager
@@ -20,8 +21,22 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
     
     session = session_manager.get_session(interview_id)
     if not session:
+        await websocket.send_json({"type": "error", "code": "session_not_found"})
         await websocket.close(code=4004)
         return
+    if session.get("status") == "completed":
+        await websocket.send_json({
+            "type": "error",
+            "code": "session_completed",
+            "message": "This interview is already complete."
+        })
+        await websocket.close(code=4000)
+        return
+
+    audio_dir = os.path.join(settings.UPLOAD_DIR, "audio")
+    os.makedirs(audio_dir, exist_ok=True)
+    fd, temp_filepath = tempfile.mkstemp(suffix=".webm", dir=audio_dir)
+    os.close(fd)
 
     audio_buffer = bytearray()
     is_processing = False
@@ -48,6 +63,12 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
                 
                 audio_buffer.extend(message["bytes"])
                 logger.debug(f"Received audio chunk of {chunk_size} bytes. Total buffer size: {len(audio_buffer)}")
+                
+                # Flush to temp file every 64KB
+                if len(audio_buffer) >= 64 * 1024:
+                    async with aiofiles.open(temp_filepath, 'ab') as f:
+                        await f.write(bytes(audio_buffer))
+                    audio_buffer = bytearray()
             
             elif "text" in message:
                 data = json.loads(message["text"])
@@ -55,11 +76,32 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
                     await websocket.send_json({"type": "pong"})
                 elif data.get("type") == "end_of_turn":
                     logger.info(f"Received end_of_turn. Current buffer size: {len(audio_buffer)}")
-                    if len(audio_buffer) > 0 and not is_processing:
+                    
+                    fresh_session = session_manager.get_session(interview_id)
+                    if fresh_session and fresh_session.get("status") == "completed":
+                        await websocket.send_json({"type": "interview_complete"})
+                        audio_buffer = bytearray()
+                        continue
+
+                    if not is_processing:
                         is_processing = True
                         try:
-                            await process_audio_turn(websocket, interview_id, audio_buffer)
+                            # Flush remaining buffer to temp file
+                            if len(audio_buffer) > 0:
+                                async with aiofiles.open(temp_filepath, 'ab') as f:
+                                    await f.write(bytes(audio_buffer))
+                                audio_buffer = bytearray()
+                            
+                            live_transcript = data.get("transcript", "")
+                            await process_audio_turn(websocket, interview_id, temp_filepath, live_transcript)
                         finally:
+                            if os.path.exists(temp_filepath):
+                                try:
+                                    os.remove(temp_filepath)
+                                except Exception as rm_err:
+                                    logger.error(f"Error removing temp file: {rm_err}")
+                            fd, temp_filepath = tempfile.mkstemp(suffix=".webm", dir=audio_dir)
+                            os.close(fd)
                             audio_buffer = bytearray()
                             is_processing = False
                 elif message.get("type") == "websocket.disconnect":
@@ -75,46 +117,67 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
                 await websocket.close(code=1011)
         except Exception:
             pass
+    finally:
+        if os.path.exists(temp_filepath):
+            try:
+                os.remove(temp_filepath)
+            except Exception as rm_err:
+                logger.error(f"Error removing temp file on disconnect: {rm_err}")
 
 
-async def process_audio_turn(websocket: WebSocket, interview_id: str, audio_data: bytes):
-    """Handles STT -> LLM -> TTS pipeline for a turn."""
+async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path: str, live_transcript: str = ""):
+    """Handles STT -> LLM -> TTS pipeline for a turn using the pre-flushed temp file."""
     session = session_manager.get_session(interview_id)
     if not session or session["status"] == "completed":
         return
 
-    # Save audio to temp file for transcription
-    temp_filename = f"ws_{uuid.uuid4().hex}.webm"
-    temp_path = os.path.join(settings.UPLOAD_DIR, temp_filename)
-    
-    async with aiofiles.open(temp_path, 'wb') as f:
-        await f.write(audio_data)
-
-    logger.info(f"Saved audio to {temp_path} for transcription. Size: {len(audio_data)} bytes")
+    logger.info(f"Using flushed audio at {temp_path} for transcription.")
 
     try:
         # 1. Transcribe (STT)
         logger.info("Calling Groq Whisper for transcription...")
-        answer_text = await transcribe_audio(temp_path)
-        logger.info(f"Whisper transcription result: '{answer_text}'")
-        
-        if not answer_text.strip() or len(answer_text.strip()) < 2:
-            logger.warning(f"Short or empty transcription received ('{answer_text}'). Skipping turn.")
+        whisper_transcript = ""
+        try:
+            if os.path.exists(temp_path) and os.path.getsize(temp_path) > 0:
+                whisper_transcript = await transcribe_audio(temp_path)
+                logger.info(f"Whisper transcription result: '{whisper_transcript}'")
+        except Exception as stt_err:
+            logger.error(f"Whisper transcription failed: {stt_err}")
+
+        whisper_transcript = whisper_transcript.strip()
+        live_transcript = live_transcript.strip()
+
+        if not whisper_transcript and not live_transcript:
+            logger.warning("Both Whisper and live transcriptions are empty.")
             await websocket.send_json({
                 "type": "error",
-                "message": "I didn't quite catch that. Could you please repeat?"
+                "code": "transcription_failed",
+                "message": "Could not transcribe audio. Please check your microphone and try again."
             })
             return
 
+        if not whisper_transcript and live_transcript:
+            answer_text = live_transcript
+            source = "browser_stt_fallback"
+        else:
+            answer_text = whisper_transcript
+            source = "whisper"
+
+        logger.info(f"Using transcript from source '{source}': '{answer_text}'")
+
         await websocket.send_json({
             "type": "transcript",
-            "text": answer_text
+            "text": answer_text,
+            "source": source
         })
 
         # 2. Evaluate & Generate Next Question (LLM)
         questions = session.get("questions", [])
-        current_idx = len(questions) - 1
-        current_q = questions[current_idx]
+        current_idx = session.get("current_question_index", len(questions) - 1)
+        if 0 <= current_idx < len(questions):
+            current_q = questions[current_idx]
+        else:
+            current_q = questions[-1]
 
         evaluation, is_complete = await evaluate_answer(
             interview_id=interview_id,
@@ -145,6 +208,3 @@ async def process_audio_turn(websocket: WebSocket, interview_id: str, audio_data
     except Exception as e:
         logger.error(f"Error processing turn: {e}")
         await websocket.send_json({"type": "error", "message": str(e)})
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
