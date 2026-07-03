@@ -34,6 +34,7 @@ export default function InterviewPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState("");
+  const [textInput, setTextInput] = useState("");
   
   const currentQ = questions[currentQuestionIndex];
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -57,7 +58,7 @@ export default function InterviewPage() {
     } else if (msg.type === "turn_complete") {
       if (msg.interview_complete) {
         setPhase("completed");
-        recordAnswer(currentQuestionIndex, liveTranscript || transcript || "Audio Response Submitted");
+        recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "Audio Response Submitted");
         // Generate final report
         api.completeInterview(interviewId).then(report => {
           setFinalReport(report);
@@ -66,18 +67,23 @@ export default function InterviewPage() {
       } else {
         if (msg.next_question) {
           addQuestion(msg.next_question, msg.topic || "Technical", [], msg.audio_url);
-          recordAnswer(currentQuestionIndex, liveTranscript || transcript || "Audio Response Submitted");
+          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "Audio Response Submitted");
           setQuestionIndex(currentQuestionIndex + 1);
           setLiveTranscript("");
           
           // Auto-play the next question
           if (msg.audio_url) {
             setPhase("greeting"); // AI speaking
+            resetTranscript();
+            startListening(); // Start listening immediately to allow barge-in
+            
             playAudio(msg.audio_url, () => {
-              setPhase("listening");
-              resetTranscript();
-              startListening();
-              // startRecording is already running; its output chunks will now be sent
+              setPhase((prev) => {
+                if (prev === "greeting") {
+                  return "listening";
+                }
+                return prev;
+              });
             });
           } else {
             // No audio URL, go straight to listening
@@ -102,9 +108,9 @@ export default function InterviewPage() {
 
   const { isConnected, sendAudio, sendMessage } = useInterviewWebSocket(interviewId, handleWSMessage);
 
-  // Conditional audio sender to completely discard chunks while AI is speaking
+  // Conditional audio sender: allow streaming during greeting or listening to catch barge-in
   const handleSendAudio = useCallback((chunk: Blob) => {
-    if (phaseRef.current === "listening") {
+    if (phaseRef.current === "listening" || phaseRef.current === "greeting") {
       sendAudio(chunk);
     }
   }, [sendAudio]);
@@ -120,13 +126,61 @@ export default function InterviewPage() {
         setPhase("processing");
         stopListening();
         sendMessage({ type: "end_of_turn", transcript });
-      }, 2500); // 2.5 seconds of silence
+      }, 3500); // 3.5 seconds of silence
     }
     
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
   }, [transcript, phase, stopListening, sendMessage]);
+
+  // Barge-in logic: detect user speaking over AI
+  useEffect(() => {
+    if (phase === "greeting" && transcript.trim().length > 1) {
+      console.log("User barged in! Stopping AI audio.");
+      stopAudio();
+      setPhase("listening");
+    }
+  }, [transcript, phase, stopAudio]);
+
+  const handleTextChange = (val: string) => {
+    setTextInput(val);
+    
+    // Interrupt AI if speaking
+    if (phase === "greeting" && val.trim().length > 0) {
+      stopAudio();
+      setPhase("listening");
+    }
+    
+    // If they start typing, cancel the silence timer and stop speech recognition
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (val.trim().length > 0) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (phase === "greeting") {
+      stopAudio();
+      setPhase("listening");
+    }
+  };
+
+  const handleTextSubmit = () => {
+    if (!textInput.trim() || phase === "processing") return;
+    
+    setPhase("processing");
+    stopAudio();
+    stopListening();
+    
+    sendMessage({ type: "end_of_turn", transcript: textInput });
+    setTextInput("");
+  };
 
   const startInterview = () => {
     if (!currentQ) return;
@@ -143,16 +197,20 @@ export default function InterviewPage() {
     // but handleSendAudio will discard chunks until phase is "listening"
     startRecording(handleSendAudio);
 
+    // Start speech recognition immediately to allow barge-in
+    startListening();
+
     if (currentQ.audioUrl) {
       playAudio(currentQ.audioUrl, () => {
-        setPhase("listening");
-        resetTranscript();
-        startListening(); // Only start transcribing locally when AI is done
+        setPhase((prev) => {
+          if (prev === "greeting") {
+            return "listening";
+          }
+          return prev;
+        });
       });
     } else {
       setPhase("listening");
-      resetTranscript();
-      startListening();
     }
   };
 
@@ -367,13 +425,49 @@ export default function InterviewPage() {
               </span>
             </div>
 
-            {/* Error alerts / validation messages */}
-            <div className="w-full max-w-md min-h-[48px] flex flex-col items-center justify-center">
-              {error ? (
+            {/* Error alerts / validation messages & Text Input */}
+            <div className="w-full max-w-md flex flex-col items-center justify-center space-y-4">
+              {error && (
                 <div className="px-4 py-2 bg-red-950/40 border border-red-900/60 text-red-200 text-xs font-medium rounded-xl animate-in shake">
                   ⚠️ {error}
                 </div>
-              ) : phase === "listening" ? (
+              )}
+
+              {/* Conversational Text / Voice Input Bar */}
+              {(phase === "listening" || phase === "greeting") && (
+                <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500">
+                  <div className="relative flex items-center bg-slate-900/80 border border-slate-800 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/30 rounded-full px-4 py-2 transition-all shadow-lg backdrop-blur-md">
+                    <input
+                      type="text"
+                      placeholder={phase === "greeting" ? "Type to interrupt interviewer..." : "Type your response or speak..."}
+                      value={textInput}
+                      onChange={(e) => handleTextChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleTextSubmit();
+                        }
+                      }}
+                      onFocus={handleInputFocus}
+                      className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none pr-10"
+                    />
+                    <button
+                      onClick={handleTextSubmit}
+                      disabled={!textInput.trim()}
+                      className={`absolute right-2 p-2 rounded-full transition-all ${
+                        textInput.trim() 
+                          ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20" 
+                          : "bg-slate-800 text-slate-600 cursor-not-allowed"
+                      }`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {phase === "listening" && (
                 <div className="flex flex-col items-center gap-2 animate-in slide-in-from-bottom-2 duration-300">
                   <button
                     onClick={() => {
@@ -389,7 +483,7 @@ export default function InterviewPage() {
                     Manual submit if silence detection delays
                   </span>
                 </div>
-              ) : null}
+              )}
             </div>
           </div>
         </div>

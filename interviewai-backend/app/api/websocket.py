@@ -202,7 +202,8 @@ async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path:
             "interview_complete": is_complete,
             "next_question": next_q,
             "audio_url": audio_url,
-            "topic": evaluation.get("topic")
+            "topic": evaluation.get("topic"),
+            "transcript": answer_text
         })
 
     except Exception as e:
