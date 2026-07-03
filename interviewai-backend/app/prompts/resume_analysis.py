@@ -58,7 +58,7 @@ Create an interview plan. Respond ONLY with valid JSON:
 {{
   "topics": ["topic1", "topic2", "topic3", "topic4", "topic5"],
   "difficulty": "easy|medium|hard",
-  "estimated_questions": 12,
+  "estimated_questions": 6,
   "focus_areas": ["area1", "area2"],
   "opening_question_topic": "which topic to start with"
 }}"""

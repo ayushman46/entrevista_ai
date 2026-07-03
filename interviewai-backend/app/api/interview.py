@@ -56,7 +56,7 @@ async def start_interview_session(request: InterviewStartRequest):
         first_question=first_q["question"],
         topic=first_q["topic"],
         difficulty=first_q.get("difficulty", role_plan.get("difficulty", "medium")),
-        total_planned_questions=role_plan.get("estimated_questions", 12),
+        total_planned_questions=role_plan.get("estimated_questions", 6),
         audio_url=audio_url,
     )
 

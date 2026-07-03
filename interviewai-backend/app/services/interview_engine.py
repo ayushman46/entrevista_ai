@@ -12,7 +12,7 @@ INTERVIEW_SYSTEM_PROMPT = """You are a professional senior software engineer con
 You are evaluating candidates fairly and rigorously.
 Always respond with valid JSON only. No markdown, no extra text."""
 
-MAX_QUESTIONS = 15
+MAX_QUESTIONS = 6
 
 
 async def start_interview(
@@ -140,8 +140,35 @@ async def evaluate_answer(
     if not updated_session:
         raise ValueError(f"Session {interview_id} not found")
 
+    # Evaluate if candidate answered or skipped
+    clean_ans = answer.strip().lower().rstrip(".").rstrip(",")
+    unanswered_phrases = {
+        "audio response submitted", "i don't know", "i do not know", "idk", 
+        "skip", "pass", "no idea", "no answer", "can't answer", "skip question"
+    }
+    is_unanswered = (
+        not clean_ans 
+        or clean_ans in unanswered_phrases 
+        or len(clean_ans.split()) < 3  # short skip answers like "no", "nothing", "next"
+    )
+
+    ctx = updated_session["interview_context"]
+    consecutive_unanswered = ctx.get("consecutive_unanswered", 0)
+    total_unanswered = ctx.get("total_unanswered", 0)
+
+    if is_unanswered:
+        consecutive_unanswered += 1
+        total_unanswered += 1
+    else:
+        consecutive_unanswered = 0
+
+    ctx["consecutive_unanswered"] = consecutive_unanswered
+    ctx["total_unanswered"] = total_unanswered
+    session_manager.update_session(interview_id, {"interview_context": ctx})
+
+    early_stop = (consecutive_unanswered >= 2) or (total_unanswered >= 3)
     question_count = len(updated_session["questions"])
-    is_complete = question_count >= MAX_QUESTIONS
+    is_complete = (question_count >= MAX_QUESTIONS) or early_stop
 
     if not is_complete:
         if not evaluation.get("follow_up_required"):

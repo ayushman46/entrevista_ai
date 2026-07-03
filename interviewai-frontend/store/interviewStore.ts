@@ -42,7 +42,7 @@ const initialState = {
   role: "sde_intern" as RoleType,
   currentQuestionIndex: 0,
   questions: [],
-  totalPlanned: 12,
+  totalPlanned: 6,
   finalReport: null,
 };
 

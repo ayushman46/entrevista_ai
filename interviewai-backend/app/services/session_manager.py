@@ -32,7 +32,7 @@ class SessionManager:
                 "remaining_topics": interview_plan.get("topics", []),
                 "current_difficulty": interview_plan.get("difficulty", "medium"),
                 "last_question": "",
-                "total_planned": interview_plan.get("estimated_questions", 12),
+                "total_planned": interview_plan.get("estimated_questions", 6),
             },
             "interview_plan": interview_plan,
             "created_at": datetime.utcnow().isoformat(),
