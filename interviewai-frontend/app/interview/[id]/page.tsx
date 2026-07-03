@@ -24,6 +24,7 @@ export default function InterviewPage() {
   const { playAudio, stopAudio } = useServerAudio();
   const { 
     transcript, 
+    isListening,
     startListening, 
     stopListening, 
     resetTranscript, 
@@ -137,7 +138,7 @@ export default function InterviewPage() {
         stopListening();
         await stopRecording();
         sendMessage({ type: "end_of_turn", transcript });
-      }, 3500); // 3.5 seconds of silence
+      }, 2200); // 2.2 seconds of silence for a faster, natural, real-time conversation flow
     }
     
     return () => {
@@ -153,6 +154,21 @@ export default function InterviewPage() {
       setPhase("listening");
     }
   }, [transcript, phase, stopAudio]);
+
+  // Auto-restart speech recognition if it ends unexpectedly during the active interview
+  useEffect(() => {
+    if (
+      phase !== "idle" &&
+      phase !== "completed" &&
+      phase !== "processing" &&
+      !isListening &&
+      isSpeechSupported &&
+      !textInput.trim()
+    ) {
+      console.log("Speech recognition stopped, restarting to keep conversation real-time...");
+      startListening();
+    }
+  }, [isListening, phase, isSpeechSupported, startListening, textInput]);
 
   const handleTextChange = (val: string) => {
     setTextInput(val);
