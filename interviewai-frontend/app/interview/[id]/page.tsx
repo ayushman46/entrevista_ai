@@ -39,6 +39,7 @@ export default function InterviewPage() {
   const currentQ = questions[currentQuestionIndex];
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const handleSendAudioRef = useRef<(chunk: Blob) => void>();
 
   // Sync ref to check the current phase in asynchronous handlers
   const phaseRef = useRef(phase);
@@ -71,6 +72,9 @@ export default function InterviewPage() {
           setQuestionIndex(currentQuestionIndex + 1);
           setLiveTranscript("");
           
+          // Start recording a fresh file (with valid WebM headers) for the next turn
+          startRecording((chunk) => handleSendAudioRef.current?.(chunk));
+          
           // Auto-play the next question
           if (msg.audio_url) {
             setPhase("greeting"); // AI speaking
@@ -99,21 +103,27 @@ export default function InterviewPage() {
         setPhase("listening");
         resetTranscript();
         startListening();
-        // Keep recording active
+        // Restart recording so they can try again
+        startRecording((chunk) => handleSendAudioRef.current?.(chunk));
       } else {
         setPhase("listening"); // Attempt to recover
       }
     }
-  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startListening, resetTranscript]);
+  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startListening, resetTranscript, startRecording]);
 
   const { isConnected, sendAudio, sendMessage } = useInterviewWebSocket(interviewId, handleWSMessage);
 
+  // Conditional audio sender: allow streaming during greeting or listening to catch barge-in
   // Conditional audio sender: allow streaming during greeting or listening to catch barge-in
   const handleSendAudio = useCallback((chunk: Blob) => {
     if (phaseRef.current === "listening" || phaseRef.current === "greeting") {
       sendAudio(chunk);
     }
   }, [sendAudio]);
+
+  useEffect(() => {
+    handleSendAudioRef.current = handleSendAudio;
+  }, [handleSendAudio]);
 
   // VAD logic: Detect end of user speaking
   useEffect(() => {
@@ -125,6 +135,7 @@ export default function InterviewPage() {
         // Stop recording/listening and signal turn end
         setPhase("processing");
         stopListening();
+        await stopRecording();
         sendMessage({ type: "end_of_turn", transcript });
       }, 3500); // 3.5 seconds of silence
     }
@@ -132,7 +143,7 @@ export default function InterviewPage() {
     return () => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
-  }, [transcript, phase, stopListening, sendMessage]);
+  }, [transcript, phase, stopListening, sendMessage, stopRecording]);
 
   // Barge-in logic: detect user speaking over AI
   useEffect(() => {
@@ -171,12 +182,13 @@ export default function InterviewPage() {
     }
   };
 
-  const handleTextSubmit = () => {
+  const handleTextSubmit = async () => {
     if (!textInput.trim() || phase === "processing") return;
     
     setPhase("processing");
     stopAudio();
     stopListening();
+    await stopRecording();
     
     sendMessage({ type: "end_of_turn", transcript: textInput });
     setTextInput("");
@@ -195,7 +207,7 @@ export default function InterviewPage() {
 
     // Start mic capture immediately to capture browser permission context,
     // but handleSendAudio will discard chunks until phase is "listening"
-    startRecording(handleSendAudio);
+    startRecording((chunk) => handleSendAudioRef.current?.(chunk));
 
     // Start speech recognition immediately to allow barge-in
     startListening();
@@ -470,9 +482,10 @@ export default function InterviewPage() {
               {phase === "listening" && (
                 <div className="flex flex-col items-center gap-2 animate-in slide-in-from-bottom-2 duration-300">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setPhase("processing");
                       stopListening();
+                      await stopRecording();
                       sendMessage({ type: "end_of_turn", transcript });
                     }}
                     className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-full shadow-md transition-colors"
