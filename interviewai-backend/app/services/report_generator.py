@@ -129,11 +129,23 @@ def generate_pdf_report(interview_id: str, report_data: dict, session: dict) -> 
 
     # Interview Transcript
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#ddd")))
-    story.append(Paragraph("Interview Transcript", heading_style))
-    for i, q in enumerate(session.get("questions", []), 1):
+    story.append(Paragraph("Interview Transcript & Prep Guide", heading_style))
+    
+    report_qs = report_data.get("questions", [])
+    session_qs = session.get("questions", [])
+    
+    for i, q in enumerate(session_qs, 1):
         story.append(Paragraph(f"<b>Q{i}: {q['question']}</b>", body_style))
         story.append(Spacer(1, 4))
-        story.append(Paragraph(f"<i>Answer: {q.get('answer', 'No answer recorded')}</i>", body_style))
+        story.append(Paragraph(f"<i>Candidate Answer: {q.get('answer', 'No answer recorded')}</i>", body_style))
+        story.append(Spacer(1, 4))
+        
+        # Get best answer from report_data matching by index
+        best_answer = "No model answer generated"
+        if i - 1 < len(report_qs):
+            best_answer = report_qs[i - 1].get("best_answer", best_answer)
+            
+        story.append(Paragraph(f"<font color='#4f46e5'><b>Best Possible Answer (For Prep):</b> {best_answer}</font>", body_style))
         story.append(Spacer(1, 12))
 
     # Footer

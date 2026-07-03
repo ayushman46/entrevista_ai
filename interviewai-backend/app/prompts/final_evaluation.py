@@ -57,5 +57,13 @@ Write a comprehensive final evaluation. Respond ONLY with valid JSON:
   ],
   "hiring_recommendation": "Strong Hire|Hire|Maybe|No Hire",
   "hiring_justification": "2-3 sentence justification for the recommendation",
-  "summary": "3-4 sentence executive summary of this candidate"
+  "summary": "3-4 sentence executive summary of this candidate",
+  "questions": [
+    {{
+      "question": "exact question text asked",
+      "candidate_answer": "exact candidate answer text",
+      "score": 8,
+      "best_answer": "Write the comprehensive, ideal, best possible answer to this technical question. Explain the key patterns, algorithms, system designs, or architectural approaches so the candidate can prepare precisely for this topic."
+    }}
+  ]
 }}"""

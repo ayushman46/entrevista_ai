@@ -244,6 +244,44 @@ export default function ReportPage() {
         </div>
       </div>
 
+      {/* Detailed Q&A Prep Guide */}
+      <div className="bg-slate-900/30 border border-slate-800/60 p-6 rounded-2xl shadow-sm space-y-6">
+        <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2 pb-3 border-b border-slate-800/60">
+          <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/20" />
+          Detailed Q&A Breakdown & Preparation Guide
+        </h3>
+        <div className="space-y-6">
+          {report.questions?.map((q: any, i: number) => (
+            <div key={i} className="space-y-3 pb-6 border-b border-slate-800/30 last:border-b-0 last:pb-0">
+              <div className="flex gap-2 items-start">
+                <span className="text-indigo-400 font-bold text-xs font-mono pt-0.5">Q{i + 1}.</span>
+                <p className="text-white text-xs font-semibold leading-relaxed">{q.question}</p>
+              </div>
+              <div className="bg-slate-950/45 border border-slate-900/40 p-4 rounded-xl text-left">
+                <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                  Candidate Answer (Score: {q.score}/10)
+                </span>
+                <p className="text-slate-300 text-xs leading-relaxed italic">
+                  "{q.candidate_answer || q.answer || "No answer recorded"}"
+                </p>
+              </div>
+              <div className="bg-indigo-950/20 border border-indigo-900/30 p-4 rounded-xl text-left relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
+                <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                  Best Possible Answer (For Prep)
+                </span>
+                <p className="text-slate-200 text-xs leading-relaxed">
+                  {q.best_answer || "No model answer generated"}
+                </p>
+              </div>
+            </div>
+          ))}
+          {(!report.questions || report.questions.length === 0) && (
+            <p className="text-slate-500 text-xs italic">No detailed question diagnostics available.</p>
+          )}
+        </div>
+      </div>
+
       {/* Footer controls */}
       <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-800/60 justify-between items-center">
         <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">

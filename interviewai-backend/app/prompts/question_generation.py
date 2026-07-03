@@ -31,6 +31,10 @@ DO NOT ask the candidate to write any code, SQL queries, or scripts.
 DO NOT ask syntax-specific questions.
 Focus STRICTLY on their approach, logic, system design, architectural decisions, and verbal problem-solving skills.
 
+RESUME COMPLIANCE CONSTRAINT:
+Your question must be formulated based SOLELY on the candidate's resume, their specific projects, technologies, and experiences mentioned in the resume summary.
+DO NOT ask generic out-of-the-box or crazy questions that are unrelated to their resume. Every question must be anchored directly to what is listed in their resume summary. Do not overdo it.
+
 CANDIDATE RESUME SUMMARY: {resume_summary}
 TARGET ROLE: {role}
 INTERVIEW TOPICS: {', '.join(topics)}
@@ -54,6 +58,10 @@ CRITICAL INSTRUCTION: THIS IS A PURELY VERBAL INTERVIEW.
 DO NOT ask the candidate to write any code, SQL queries, or scripts. 
 DO NOT ask syntax-specific questions.
 Focus STRICTLY on their approach, logic, system design, architectural decisions, and verbal problem-solving skills.
+
+RESUME COMPLIANCE CONSTRAINT:
+Your question must be formulated based SOLELY on the candidate's resume, their specific projects, technologies, and experiences mentioned in the resume summary.
+DO NOT ask generic out-of-the-box or crazy questions that are unrelated to their resume. Every question must be anchored directly to what is listed in their resume summary. Do not overdo it.
 
 INTERVIEW CONTEXT:
 - Candidate: {context.get('candidate_name', 'Candidate')}
