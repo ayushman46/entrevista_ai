@@ -7,6 +7,7 @@ import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useServerAudio } from "@/hooks/useServerAudio";
 import { useInterviewWebSocket } from "@/hooks/useInterviewWebSocket";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import Link from "next/link";
 
 type Phase = "idle" | "greeting" | "listening" | "processing" | "completed";
 
@@ -35,8 +36,17 @@ export default function InterviewPage() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState("");
-  const [textInput, setTextInput] = useState("");
   
+  // Timer state
+  const [timerSeconds, setTimerSeconds] = useState(0);
+
+  // Transcript visibility state
+  const [showTranscript, setShowTranscript] = useState(true);
+
+  // Camera preview state
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
   const currentQ = questions[currentQuestionIndex];
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -48,10 +58,52 @@ export default function InterviewPage() {
     phaseRef.current = phase;
   }, [phase]);
 
-  // Handle auto-scroll to the bottom of the conversation
+  // Keep chat sidebar scrolled to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [questions, phase, transcript, liveTranscript]);
+  }, [questions, phase, transcript, liveTranscript, showTranscript]);
+
+  // Start ticking timer when interview starts
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (phase !== "idle" && phase !== "completed") {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [phase]);
+
+  const formatTime = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  // Toggle Camera logic
+  const toggleCamera = async () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setCameraStream(stream);
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+        setError("Could not access camera. Please check permissions.");
+      }
+    }
+  };
+
+  // Sync camera stream to video tag
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream]);
 
   // WebSocket message handler
   const handleWSMessage = useCallback((msg: any) => {
@@ -61,6 +113,12 @@ export default function InterviewPage() {
       if (msg.interview_complete) {
         setPhase("completed");
         recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "Audio Response Submitted");
+        
+        // Stop camera tracks before redirect
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(t => t.stop());
+        }
+
         // Generate final report
         api.completeInterview(interviewId).then(report => {
           setFinalReport(report);
@@ -110,11 +168,10 @@ export default function InterviewPage() {
         setPhase("listening"); // Attempt to recover
       }
     }
-  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startListening, resetTranscript, startRecording]);
+  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startListening, resetTranscript, startRecording, cameraStream]);
 
   const { isConnected, sendAudio, sendMessage } = useInterviewWebSocket(interviewId, handleWSMessage);
 
-  // Conditional audio sender: allow streaming during greeting or listening to catch barge-in
   // Conditional audio sender: allow streaming during greeting or listening to catch barge-in
   const handleSendAudio = useCallback((chunk: Blob) => {
     if (phaseRef.current === "listening" || phaseRef.current === "greeting") {
@@ -128,17 +185,15 @@ export default function InterviewPage() {
 
   // VAD logic: Detect end of user speaking
   useEffect(() => {
-    // Only trigger VAD if we have some significant content and are in the listening phase
     if (phase === "listening" && transcript.trim().length > 1) {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       
       silenceTimerRef.current = setTimeout(async () => {
-        // Stop recording/listening and signal turn end
         setPhase("processing");
         stopListening();
         await stopRecording();
         sendMessage({ type: "end_of_turn", transcript });
-      }, 2200); // 2.2 seconds of silence for a faster, natural, real-time conversation flow
+      }, 2200); // 2.2s silence detector
     }
     
     return () => {
@@ -162,53 +217,12 @@ export default function InterviewPage() {
       phase !== "completed" &&
       phase !== "processing" &&
       !isListening &&
-      isSpeechSupported &&
-      !textInput.trim()
+      isSpeechSupported
     ) {
       console.log("Speech recognition stopped, restarting to keep conversation real-time...");
       startListening();
     }
-  }, [isListening, phase, isSpeechSupported, startListening, textInput]);
-
-  const handleTextChange = (val: string) => {
-    setTextInput(val);
-    
-    // Interrupt AI if speaking
-    if (phase === "greeting" && val.trim().length > 0) {
-      stopAudio();
-      setPhase("listening");
-    }
-    
-    // If they start typing, cancel the silence timer and stop speech recognition
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-    if (val.trim().length > 0) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  };
-
-  const handleInputFocus = () => {
-    if (phase === "greeting") {
-      stopAudio();
-      setPhase("listening");
-    }
-  };
-
-  const handleTextSubmit = async () => {
-    if (!textInput.trim() || phase === "processing") return;
-    
-    setPhase("processing");
-    stopAudio();
-    stopListening();
-    await stopRecording();
-    
-    sendMessage({ type: "end_of_turn", transcript: textInput });
-    setTextInput("");
-  };
+  }, [isListening, phase, isSpeechSupported, startListening]);
 
   const startInterview = () => {
     if (!currentQ) return;
@@ -221,11 +235,10 @@ export default function InterviewPage() {
     setError(null);
     resetTranscript();
 
-    // Start mic capture immediately to capture browser permission context,
-    // but handleSendAudio will discard chunks until phase is "listening"
+    // Start mic capture immediately
     startRecording((chunk) => handleSendAudioRef.current?.(chunk));
 
-    // Start speech recognition immediately to allow barge-in
+    // Start speech recognition immediately
     startListening();
 
     if (currentQ.audioUrl) {
@@ -242,119 +255,304 @@ export default function InterviewPage() {
     }
   };
 
-  // Cleanup
+  const handleEndInterview = async () => {
+    setPhase("processing");
+    stopAudio();
+    stopListening();
+    await stopRecording();
+    
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+    }
+
+    try {
+      const report = await api.completeInterview(interviewId);
+      setFinalReport(report);
+      router.push(`/report/${interviewId}`);
+    } catch (err) {
+      console.error("Error completing interview early:", err);
+      router.push(`/report/${interviewId}`);
+    }
+  };
+
+  // Cleanup on leave
   useEffect(() => {
     return () => {
       stopAudio();
       stopRecording();
       stopListening();
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+      }
     };
-  }, [stopAudio, stopRecording, stopListening]);
+  }, [stopAudio, stopRecording, stopListening, cameraStream]);
 
   if (!currentQ) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] bg-slate-950 text-white rounded-3xl p-8 border border-slate-800">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] bg-slate-50 text-slate-800 rounded-3xl p-8 border border-slate-200 shadow-md">
         <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-slate-400 font-medium">Connecting to Interviewer...</p>
+        <p className="text-slate-500 font-semibold">Connecting to AI Interviewer...</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950/20 text-white rounded-3xl border border-slate-800/80 shadow-2xl min-h-[85vh] flex flex-col justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 border-b border-slate-800/60 pb-6">
-        <div>
-          <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-            Adaptive Technical Assessment
-          </h2>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Stream</span>
+    <div className="flex h-screen w-full bg-gradient-to-br from-slate-50 via-indigo-50/20 to-sky-50/30 text-slate-800 overflow-hidden font-sans fixed inset-0 z-50">
+      
+      {/* LEFT MAIN ASSIGNMENT CANVAS */}
+      <div className="flex-1 flex flex-col justify-between p-6 relative">
+        
+        {/* Top Header Row */}
+        <div className="flex items-center justify-between z-10">
+          <Link
+            href="/upload"
+            onClick={() => {
+              if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+              }
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white hover:bg-slate-100 text-slate-600 text-xs font-semibold rounded-full border border-slate-200/60 shadow-sm transition-all"
+          >
+            <span>← Exit Interview</span>
+          </Link>
+
+          {/* Time Counter */}
+          {phase !== "idle" && phase !== "completed" && (
+            <div className="px-4 py-1.5 bg-white/80 border border-slate-200/60 rounded-full flex items-center gap-1.5 text-xs font-bold text-slate-600 shadow-sm backdrop-blur-sm">
+              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <span>{formatTime(timerSeconds)}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${isRecording ? "bg-green-500 animate-pulse" : "bg-slate-500"}`} />
-              <span className="text-[9px] font-bold text-slate-400 uppercase">Mic</span>
-            </div>
-            <span className="text-slate-300 text-xs font-medium capitalize ml-2 bg-slate-800/50 px-2.5 py-0.5 rounded-full border border-slate-700/50">
-              {role.replace("_", " ")}
-            </span>
+          )}
+
+          {/* Question Progress */}
+          <div className="px-4 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 text-xs font-bold rounded-full shadow-sm">
+            Question {currentQuestionIndex + 1}/{totalPlanned}
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-semibold tracking-tight text-white">
-            {currentQuestionIndex + 1}
-            <span className="text-slate-500 text-sm font-normal"> / {totalPlanned}</span>
+
+        {/* Center Canvas with Visualizer Orb */}
+        <div className="flex-1 flex flex-col items-center justify-center relative">
+          
+          {phase === "idle" ? (
+            <div className="flex flex-col items-center justify-center text-center space-y-8 max-w-md animate-in fade-in duration-700">
+              <div className="w-24 h-24 bg-indigo-600/10 border border-indigo-500/20 rounded-full flex items-center justify-center shadow-lg relative group">
+                <div className="absolute inset-0 rounded-full bg-indigo-500/15 blur-xl group-hover:bg-indigo-500/25 transition-all animate-pulse" />
+                <svg className="w-10 h-10 text-indigo-500 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <div className="space-y-3">
+                <h1 className="text-3xl font-extrabold tracking-tight text-slate-800">Begin Voice Assessment</h1>
+                <p className="text-slate-500 text-sm leading-relaxed">
+                  Start a real-time conversational interview based strictly on your resume. Speak naturally when answering the questions.
+                </p>
+              </div>
+              <button 
+                onClick={startInterview} 
+                disabled={!isConnected}
+                className={`px-8 py-3.5 text-sm rounded-full font-bold shadow-lg shadow-indigo-500/10 transition-all ${
+                  isConnected 
+                    ? "bg-indigo-600 hover:bg-indigo-500 text-white transform hover:-translate-y-0.5" 
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                }`}
+              >
+                {isConnected ? "Start Interview" : "Connecting to Host..."}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              
+              {/* Dynamic Status Indicator */}
+              <div className="flex justify-center mb-6">
+                <div className={`px-4 py-1.5 rounded-full flex items-center gap-2 text-xs font-semibold shadow-sm border transition-all duration-500 ${
+                  phase === "greeting" ? "bg-indigo-50 border-indigo-100 text-indigo-600" :
+                  phase === "listening" ? "bg-emerald-50 border-emerald-100 text-emerald-600" :
+                  phase === "processing" ? "bg-amber-50 border-amber-100 text-amber-600" :
+                  "bg-slate-100 border-slate-200 text-slate-500"
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    phase === "greeting" ? "bg-indigo-500 animate-pulse" :
+                    phase === "listening" ? "bg-emerald-500 animate-ping" :
+                    phase === "processing" ? "bg-amber-500 animate-bounce" :
+                    "bg-slate-400"
+                  }`} />
+                  <span>
+                    {phase === "greeting" ? "AI Speaking" :
+                     phase === "listening" ? "Listening..." :
+                     phase === "processing" ? "Thinking..." :
+                     "Idle"}
+                  </span>
+                </div>
+              </div>
+
+              {/* The Siri-style glowing orb visualizer */}
+              <div className="relative w-80 h-80 flex items-center justify-center">
+                {/* Glowing breathing outer layer */}
+                <div className={`absolute inset-0 rounded-full blur-2xl opacity-75 filter transition-all duration-1000 ${
+                  phase === "greeting" ? "bg-gradient-to-tr from-yellow-300 via-pink-400 to-indigo-500 scale-105" :
+                  phase === "listening" ? "bg-gradient-to-tr from-emerald-400 via-teal-400 to-sky-400 scale-110" :
+                  phase === "processing" ? "bg-gradient-to-tr from-amber-400 via-purple-400 to-pink-500" :
+                  "bg-gradient-to-tr from-slate-200 via-blue-200 to-indigo-100"
+                }`} style={{
+                  animation: phase === "processing" 
+                    ? "spin 5s linear infinite" 
+                    : "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
+                }} />
+
+                {/* Main Orb Center */}
+                <div className={`w-72 h-72 rounded-full bg-gradient-to-tr from-yellow-200 via-indigo-200 to-blue-400 shadow-2xl relative overflow-hidden flex items-center justify-center border border-white/40 transition-all duration-700 ${
+                  phase === "listening" ? "scale-105 shadow-emerald-500/10" : ""
+                }`}>
+                  <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
+                  
+                  {/* Equalizer animation overlay when AI is speaking */}
+                  {phase === "greeting" && (
+                    <div className="flex gap-2 items-end h-16 relative z-10">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="w-1.5 bg-white/80 rounded-full animate-bounce" style={{
+                          animationDelay: `${i * 0.12}s`,
+                          height: `${40 + Math.random() * 60}%`
+                        }} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Pulsing microphone status when listening */}
+                  {phase === "listening" && (
+                    <div className="w-6 h-6 rounded-full bg-emerald-500/80 animate-ping relative z-10" />
+                  )}
+
+                  {/* Ring loader when processing */}
+                  {phase === "processing" && (
+                    <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin relative z-10" />
+                  )}
+                </div>
+              </div>
+
+              {/* Quick info feedback alerts */}
+              {error && (
+                <div className="mt-6 px-4 py-2 bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold rounded-full shadow-sm animate-bounce">
+                  ⚠️ {error}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Center Bottom Control Buttons */}
+        {phase !== "idle" && (
+          <div className="flex justify-center gap-4 z-10 mb-2">
+            <button
+              onClick={handleEndInterview}
+              className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg shadow-red-600/10 hover:shadow-red-600/20 transition-all flex items-center gap-2"
+            >
+              {/* Square Stop Icon */}
+              <span className="w-2.5 h-2.5 bg-white rounded-sm shrink-0" />
+              <span>End Interview</span>
+            </button>
+
+            <button
+              onClick={() => setShowTranscript((prev) => !prev)}
+              className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-full shadow-md border border-slate-200/60 transition-all flex items-center gap-2"
+            >
+              {/* Speech Bubble Icon */}
+              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+              </svg>
+              <span>{showTranscript ? "Hide Transcript" : "Show Transcript"}</span>
+            </button>
           </div>
-          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Active Turn</div>
+        )}
+
+        {/* Floating Webcam Overlay (Picture-in-Picture) */}
+        <div className="absolute bottom-6 left-6 z-20">
+          {cameraStream ? (
+            <div className="relative w-48 h-32 bg-slate-900 border border-slate-200 shadow-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted 
+                className="w-full h-full object-cover" 
+              />
+              <button 
+                onClick={toggleCamera}
+                className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white transition-colors"
+                title="Turn off camera"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={toggleCamera}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold rounded-full border border-slate-200/60 shadow-sm transition-all"
+            >
+              {/* Camera Icon */}
+              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+              </svg>
+              <span>Turn On Camera</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {phase === "idle" ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-12 space-y-8 animate-in fade-in duration-700">
-          <div className="w-20 h-20 bg-indigo-600/10 border border-indigo-500/20 rounded-full flex items-center justify-center shadow-inner relative group">
-            <div className="absolute inset-0 rounded-full bg-indigo-500/10 blur-xl group-hover:bg-indigo-500/20 transition-all" />
-            <svg className="w-8 h-8 text-indigo-400 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+      {/* RIGHT LIVE TRANSCRIPT PANEL */}
+      {showTranscript && (
+        <div className="w-[380px] border-l border-slate-200/60 bg-white flex flex-col shadow-lg animate-in slide-in-from-right duration-300 z-10">
+          
+          {/* Transcript Panel Title */}
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <h3 className="font-bold text-slate-800 text-sm tracking-tight">Live Transcript</h3>
+            <span className="inline-flex w-2 h-2 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/20 animate-pulse" />
           </div>
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-white mb-3">Begin Mock Assessment</h1>
-            <p className="text-slate-400 max-w-md mx-auto text-sm leading-relaxed">
-              We'll start with a warm greeting to check your connection. Respond naturally as you would to a live recruiter.
-            </p>
-          </div>
-          <button 
-            onClick={startInterview} 
-            disabled={!isConnected}
-            className={`px-8 py-3.5 text-sm rounded-full font-bold shadow-lg transition-all ${
-              isConnected 
-                ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/10 hover:shadow-indigo-600/20 transform hover:-translate-y-0.5" 
-                : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700"
-            }`}
-          >
-            {isConnected ? "Start Interview" : "Establishing Stream..."}
-          </button>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col justify-between space-y-6">
-          {/* Conversational Dialogue Window */}
-          <div className="flex-1 overflow-y-auto space-y-6 max-h-[360px] min-h-[220px] pr-2 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+
+          {/* Transcript Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
             {questions.map((q, idx) => {
               const isCurrent = idx === currentQuestionIndex;
-              // If it's the current question and the AI hasn't spoken yet or we are waiting, show it at the bottom actively
               if (isCurrent && phase !== "completed") return null;
 
               return (
-                <div key={idx} className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div key={idx} className="space-y-4">
                   {/* AI Bubble */}
                   <div className="flex gap-3 items-start">
-                    <div className="w-8 h-8 rounded-full bg-indigo-950 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 shrink-0 shadow-md">
-                      AI
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center shrink-0">
+                      {/* Robot Icon */}
+                      <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 7.5h.008v.008h-.008V7.5Zm0 2.25h.008v.008h-.008V9.75ZM3.75 21h.007v-.008H3.75V21Zm.007-.008H3.75V21h.007v-.008Zm0 0V3.545c0-.66.538-1.2 1.2-1.2h14.1c.66 0 1.2.538 1.2 1.2V21" />
+                      </svg>
                     </div>
-                    <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-sm">
-                      <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
-                        Topic: {q.topic}
+                    <div className="bg-indigo-50/50 border border-indigo-100/50 p-4 rounded-2xl rounded-tl-none text-left">
+                      <span className="text-indigo-500 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                        AI Interviewer
                       </span>
-                      <p className="text-slate-200 text-sm leading-relaxed">{q.question}</p>
+                      <p className="text-slate-700 text-xs leading-relaxed font-medium">{q.question}</p>
                     </div>
                   </div>
-                  
+
                   {/* Candidate Bubble */}
                   {q.answer && (
                     <div className="flex gap-3 items-start justify-end">
-                      <div className="bg-indigo-950/40 border border-indigo-900/40 p-4 rounded-2xl rounded-tr-none max-w-[85%] text-right shadow-sm">
-                        <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                      <div className="bg-slate-50 border border-slate-200/50 p-4 rounded-2xl rounded-tr-none text-right">
+                        <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
                           You
                         </span>
-                        <p className="text-slate-300 text-sm leading-relaxed italic">
+                        <p className="text-slate-600 text-xs leading-relaxed italic">
                           "{q.answer}"
                         </p>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md shadow-indigo-600/10">
-                        YOU
+                      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                        {/* User Icon */}
+                        <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7 0 3.75 3.75 0 0 1 7 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                        </svg>
                       </div>
                     </div>
                   )}
@@ -362,39 +560,46 @@ export default function InterviewPage() {
               );
             })}
 
-            {/* Current Active Bubble */}
+            {/* Active Question Bubble */}
             {phase !== "completed" && currentQ && (
-              <div className="space-y-4 animate-in fade-in duration-500">
+              <div className="space-y-4">
+                
+                {/* AI Active Bubble */}
                 <div className="flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-full bg-indigo-900 border border-indigo-500 flex items-center justify-center text-[10px] font-bold text-indigo-200 shrink-0 shadow-lg animate-pulse">
-                    AI
+                  <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center shrink-0 shadow-md shadow-indigo-500/20">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 7.5h.008v.008h-.008V7.5Zm0 2.25h.008v.008h-.008V9.75ZM3.75 21h.007v-.008H3.75V21Zm.007-.008H3.75V21h.007v-.008Zm0 0V3.545c0-.66.538-1.2 1.2-1.2h14.1c.66 0 1.2.538 1.2 1.2V21" />
+                    </svg>
                   </div>
-                  <div className="bg-slate-900 border border-slate-800/80 p-5 rounded-2xl rounded-tl-none max-w-[85%] shadow-md relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
-                    <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
-                      Current Topic: {currentQ.topic}
+                  <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl rounded-tl-none text-left relative shadow-sm">
+                    <span className="text-indigo-600 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                      AI Interviewer (Topic: {currentQ.topic})
                     </span>
-                    <p className="text-white text-base font-medium leading-relaxed">
+                    <p className="text-slate-800 text-xs leading-relaxed font-semibold">
                       {currentQ.question}
                     </p>
                   </div>
                 </div>
 
-                {/* Candidate Active Speaking Bubble */}
+                {/* Candidate Active Voice Output */}
                 {(phase === "listening" || phase === "processing") && (
-                  <div className="flex gap-3 items-start justify-end animate-in slide-in-from-bottom-2 duration-300">
-                    <div className="bg-slate-900/40 border border-slate-800/60 p-4 rounded-2xl rounded-tr-none max-w-[85%] text-right min-w-[120px]">
-                      <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1.5">
-                        {phase === "listening" ? "Listening..." : "Evaluating..."}
+                  <div className="flex gap-3 items-start justify-end animate-in fade-in duration-300">
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl rounded-tr-none text-right min-w-[120px] max-w-[85%] shadow-sm">
+                      <span className="text-indigo-500 text-[9px] font-bold uppercase tracking-wider block mb-1">
+                        {phase === "listening" ? "Listening..." : "Thinking..."}
                       </span>
-                      <p className="text-slate-300 text-sm leading-relaxed italic">
-                        {transcript || liveTranscript || "Speak naturally..."}
+                      <p className="text-slate-600 text-xs leading-relaxed italic">
+                        {transcript || liveTranscript || "..."}
                       </p>
                     </div>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-md ${
-                      phase === "listening" ? "bg-red-600 animate-pulse shadow-red-600/15" : "bg-indigo-600 animate-spin"
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
+                      phase === "listening" ? "bg-red-500 text-white animate-pulse" : "bg-indigo-500 text-white animate-spin"
                     }`}>
-                      {phase === "listening" ? "REC" : "•••"}
+                      {phase === "listening" ? (
+                        <span className="w-2.5 h-2.5 bg-white rounded-full" />
+                      ) : (
+                        <span className="text-xs">•••</span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -402,137 +607,8 @@ export default function InterviewPage() {
             )}
             <div ref={messagesEndRef} />
           </div>
-
-          {/* Central Dial & Visualizer Controls */}
-          <div className="flex flex-col items-center justify-center border-t border-slate-900/60 pt-6">
-            <div className={`w-28 h-28 rounded-full flex items-center justify-center transition-all duration-700 shadow-2xl relative border ${
-              phase === "greeting" ? "bg-indigo-950/80 border-indigo-500 scale-105" : 
-              phase === "listening" ? "bg-red-950/80 border-red-500 scale-105" : 
-              "bg-slate-900 border-slate-800"
-            }`}>
-              {/* Outer Pulse rings */}
-              {phase === "greeting" && (
-                <>
-                  <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
-                  <div className="absolute inset-[-15%] rounded-full border border-indigo-400/10 animate-pulse" />
-                </>
-              )}
-              {phase === "listening" && (
-                <>
-                  <div className="absolute inset-0 rounded-full border-4 border-red-500/20 animate-ping" />
-                  <div className="absolute inset-[-15%] rounded-full border border-red-400/10 animate-pulse" />
-                </>
-              )}
-
-              {phase === "greeting" && (
-                <div className="flex gap-1 items-end h-6">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-1 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s`, height: `${40 + Math.random() * 60}%` }} />
-                  ))}
-                </div>
-              )}
-              {phase === "listening" && (
-                <div className="w-4 h-4 rounded-full bg-red-500 animate-ping" />
-              )}
-              {phase === "processing" && (
-                <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-              )}
-            </div>
-            
-            <div className="text-center mt-3 mb-4">
-              <span className={`text-[10px] font-bold uppercase tracking-[0.25em] transition-colors duration-500 ${
-                phase === "greeting" ? "text-indigo-400 animate-pulse" : 
-                phase === "listening" ? "text-red-400" : 
-                phase === "processing" ? "text-indigo-400" : 
-                "text-slate-500"
-              }`}>
-                {phase === "greeting" ? "AI Interviewer Speaking" : 
-                 phase === "listening" ? "Microphone Active" : 
-                 phase === "processing" ? "Analyzing Response" : 
-                 "System Idle"}
-              </span>
-            </div>
-
-            {/* Error alerts / validation messages & Text Input */}
-            <div className="w-full max-w-md flex flex-col items-center justify-center space-y-4">
-              {error && (
-                <div className="px-4 py-2 bg-red-950/40 border border-red-900/60 text-red-200 text-xs font-medium rounded-xl animate-in shake">
-                  ⚠️ {error}
-                </div>
-              )}
-
-              {/* Conversational Text / Voice Input Bar */}
-              {(phase === "listening" || phase === "greeting") && (
-                <div className="w-full animate-in fade-in slide-in-from-bottom-3 duration-500">
-                  <div className="relative flex items-center bg-slate-900/80 border border-slate-800 focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/30 rounded-full px-4 py-2 transition-all shadow-lg backdrop-blur-md">
-                    <input
-                      type="text"
-                      placeholder={phase === "greeting" ? "Type to interrupt interviewer..." : "Type your response or speak..."}
-                      value={textInput}
-                      onChange={(e) => handleTextChange(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleTextSubmit();
-                        }
-                      }}
-                      onFocus={handleInputFocus}
-                      className="flex-1 bg-transparent text-white placeholder-slate-500 text-sm focus:outline-none pr-10"
-                    />
-                    <button
-                      onClick={handleTextSubmit}
-                      disabled={!textInput.trim()}
-                      className={`absolute right-2 p-2 rounded-full transition-all ${
-                        textInput.trim() 
-                          ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20" 
-                          : "bg-slate-800 text-slate-600 cursor-not-allowed"
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {phase === "listening" && (
-                <div className="flex flex-col items-center gap-2 animate-in slide-in-from-bottom-2 duration-300">
-                  <button
-                    onClick={async () => {
-                      setPhase("processing");
-                      stopListening();
-                      await stopRecording();
-                      sendMessage({ type: "end_of_turn", transcript });
-                    }}
-                    className="px-5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-full shadow-md transition-colors"
-                  >
-                    Finish Speaking
-                  </button>
-                  <span className="text-[9px] text-slate-500 uppercase tracking-wider">
-                    Manual submit if silence detection delays
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       )}
-
-      {/* Progress Footer */}
-      <div className="mt-6 border-t border-slate-900/60 pt-6">
-        <div className="max-w-xl mx-auto">
-          <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-            <span>Interview Completion Progress</span>
-            <span>{Math.round(((currentQuestionIndex + 1) / totalPlanned) * 100)}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden shadow-inner border border-slate-800/20">
-            <div 
-              className="h-full bg-gradient-to-r from-indigo-600 to-indigo-500 transition-all duration-1000 ease-out shadow-lg shadow-indigo-500/20" 
-              style={{ width: `${((currentQuestionIndex + 1) / totalPlanned) * 100}%` }} 
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
