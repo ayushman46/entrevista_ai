@@ -11,19 +11,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-white text-slate-900 min-h-screen antialiased`}>
-        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="font-semibold tracking-tight text-lg">InterviewAI</span>
-            </div>
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
-          </div>
-        </nav>
-        <main className="max-w-4xl mx-auto px-6 py-12">
-          {children}
-        </main>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} bg-slate-100 text-slate-900 min-h-screen antialiased flex flex-col`}>
+        {children}
       </body>
     </html>
   );

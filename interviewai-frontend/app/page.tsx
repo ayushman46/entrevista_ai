@@ -2,7 +2,17 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="space-y-20 py-4 text-slate-900">
+    <>
+      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40">
+        <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+          </div>
+          <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+        </div>
+      </nav>
+      <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+        <div className="space-y-20 py-4 text-slate-900">
       {/* Hero Section */}
       <section className="text-left space-y-6 max-w-3xl">
         <h1 className="text-5xl font-semibold tracking-tight leading-tight text-slate-900">
@@ -99,7 +109,9 @@ export default function Home() {
             </span>
           ))}
         </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </main>
+    </>
   );
 }

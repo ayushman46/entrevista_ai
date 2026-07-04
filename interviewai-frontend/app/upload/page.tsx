@@ -65,7 +65,17 @@ export default function UploadPage() {
 
   if (step === "upload") {
     return (
-      <div className="max-w-xl">
+      <>
+        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
+          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+            </div>
+            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+          </div>
+        </nav>
+        <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+          <div className="max-w-xl">
         <h1 className="text-3xl font-medium tracking-tight text-slate-900 mb-3">Resume</h1>
         <p className="text-slate-500 mb-10 text-lg">Let's start by understanding your background.</p>
 
@@ -123,12 +133,24 @@ export default function UploadPage() {
           </button>
         </div>
       </div>
+    </main>
+    </>
     );
   }
 
   if (step === "config") {
     return (
-      <div className="max-w-xl">
+      <>
+        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
+          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+            </div>
+            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+          </div>
+        </nav>
+        <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+          <div className="max-w-xl">
         <h1 className="text-3xl font-medium tracking-tight text-slate-900 mb-3">Target Role</h1>
         <p className="text-slate-500 mb-10 text-lg">What position are you interviewing for?</p>
 
@@ -168,13 +190,27 @@ export default function UploadPage() {
           Begin Interview
         </button>
       </div>
+    </main>
+    </>
     );
   }
 
   return (
-    <div className="max-w-xl py-20">
-      <p className="text-slate-900 text-xl font-medium mb-2">Preparing your interview...</p>
-      <p className="text-slate-500">Generating contextual questions</p>
-    </div>
+    <>
+      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
+        <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+          </div>
+          <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+        </div>
+      </nav>
+      <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+        <div className="max-w-xl py-20">
+          <p className="text-slate-900 text-xl font-medium mb-2">Preparing your interview...</p>
+          <p className="text-slate-500">Generating contextual questions</p>
+        </div>
+      </main>
+    </>
   );
 }

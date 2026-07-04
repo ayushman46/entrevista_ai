@@ -83,19 +83,41 @@ export default function ReportPage() {
 
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-12 flex flex-col items-center justify-center min-h-[70vh] text-center">
+      <>
+        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
+          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+            </div>
+            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+          </div>
+        </nav>
+        <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+          <div className="max-w-3xl mx-auto px-6 py-12 flex flex-col items-center justify-center min-h-[70vh] text-center">
         <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6" />
         <h2 className="text-xl font-semibold text-white mb-2">Analyzing Candidate Answers...</h2>
         <p className="text-slate-400 max-w-sm text-sm">
           Please wait while the LLM orchestrator aggregates grades, compiles feedback, and compiles the final diagnostics PDF.
         </p>
       </div>
+    </main>
+    </>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-16 text-center bg-slate-900/40 border border-slate-800/80 text-white rounded-3xl p-8 shadow-2xl backdrop-blur-md">
+      <>
+        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
+          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+            </div>
+            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+          </div>
+        </nav>
+        <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+          <div className="max-w-3xl mx-auto px-6 py-16 text-center bg-slate-900/40 border border-slate-800/80 text-white rounded-3xl p-8 shadow-2xl backdrop-blur-md">
         <div className="w-16 h-16 bg-red-950/40 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
           <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -114,6 +136,8 @@ export default function ReportPage() {
           </Link>
         </div>
       </div>
+    </main>
+    </>
     );
   }
 
@@ -122,7 +146,17 @@ export default function ReportPage() {
     : `${BASE_URL}${report.pdf_url}`;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950/20 text-white rounded-3xl border border-slate-800/80 shadow-2xl min-h-[85vh] flex flex-col justify-between space-y-8 animate-in fade-in duration-500">
+    <>
+      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
+        <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
+          </div>
+          <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
+        </div>
+      </nav>
+      <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
+        <div className="max-w-3xl mx-auto px-6 py-8 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950/20 text-white rounded-3xl border border-slate-800/80 shadow-2xl min-h-[85vh] flex flex-col justify-between space-y-8 animate-in fade-in duration-500">
       
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800/60 gap-4">
@@ -304,5 +338,7 @@ export default function ReportPage() {
         </div>
       </div>
     </div>
+    </main>
+    </>
   );
 }
