@@ -21,7 +21,7 @@ export default function InterviewPage() {
     recordAnswer, addQuestion, setFinalReport, setQuestionIndex
   } = useInterviewStore();
 
-  const { startRecording, stopRecording, isRecording } = useAudioRecorder();
+  const { startRecording, stopRecording, isRecording, stream } = useAudioRecorder();
   const { playAudio, stopAudio } = useServerAudio();
   const { 
     transcript, 
@@ -39,6 +39,9 @@ export default function InterviewPage() {
   
   // Timer state
   const [timerSeconds, setTimerSeconds] = useState(0);
+
+  // Audio volume state (0 to 100)
+  const [audioVolume, setAudioVolume] = useState(0);
 
   // Transcript visibility state
   const [showTranscript, setShowTranscript] = useState(true);
@@ -75,6 +78,56 @@ export default function InterviewPage() {
       if (interval) clearInterval(interval);
     };
   }, [phase]);
+
+  // Real-time audio volume analyzer
+  useEffect(() => {
+    if (!stream) {
+      setAudioVolume(0);
+      return;
+    }
+
+    let audioContext: AudioContext | null = null;
+    let source: MediaStreamAudioSourceNode | null = null;
+    let analyser: AnalyserNode | null = null;
+    let animationId: number;
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      audioContext = new AudioContextClass();
+      source = audioContext.createMediaStreamSource(stream);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      const checkVolume = () => {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / bufferLength;
+        // Scale and cap the volume percentage (0 to 100)
+        const vol = Math.min(100, Math.round((average / 128) * 100));
+        setAudioVolume(vol);
+        animationId = requestAnimationFrame(checkVolume);
+      };
+
+      checkVolume();
+    } catch (err) {
+      console.warn("Web Audio API not fully supported or blocked:", err);
+    }
+
+    return () => {
+      if (animationId) cancelAnimationFrame(animationId);
+      if (audioContext) {
+        audioContext.close().catch(e => console.warn("Error closing AudioContext:", e));
+      }
+    };
+  }, [stream]);
 
   const formatTime = (totalSec: number) => {
     const mins = Math.floor(totalSec / 60);
@@ -390,21 +443,37 @@ export default function InterviewPage() {
               {/* The Siri-style glowing orb visualizer */}
               <div className="relative w-80 h-80 flex items-center justify-center">
                 {/* Glowing breathing outer layer */}
-                <div className={`absolute inset-0 rounded-full blur-2xl opacity-75 filter transition-all duration-1000 ${
-                  phase === "greeting" ? "bg-gradient-to-tr from-yellow-300 via-pink-400 to-indigo-500 scale-105" :
-                  phase === "listening" ? "bg-gradient-to-tr from-emerald-400 via-teal-400 to-sky-400 scale-110" :
-                  phase === "processing" ? "bg-gradient-to-tr from-amber-400 via-purple-400 to-pink-500" :
-                  "bg-gradient-to-tr from-slate-200 via-blue-200 to-indigo-100"
-                }`} style={{
-                  animation: phase === "processing" 
-                    ? "spin 5s linear infinite" 
-                    : "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
-                }} />
+                <div 
+                  className={`absolute inset-0 rounded-full blur-2xl opacity-75 filter transition-all duration-300 ${
+                    phase === "greeting" ? "bg-gradient-to-tr from-yellow-300 via-pink-400 to-indigo-500" :
+                    phase === "listening" ? "bg-gradient-to-tr from-emerald-400 via-teal-400 to-sky-400" :
+                    phase === "processing" ? "bg-gradient-to-tr from-amber-400 via-purple-400 to-pink-500 animate-spin" :
+                    "bg-gradient-to-tr from-slate-200 via-blue-200 to-indigo-100"
+                  }`} 
+                  style={{
+                    animation: phase === "processing" 
+                      ? "spin 5s linear infinite" 
+                      : phase === "listening" 
+                        ? undefined 
+                        : "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                    transform: phase === "listening" 
+                      ? `scale(${1.1 + audioVolume / 300})` 
+                      : undefined,
+                    boxShadow: phase === "listening" 
+                      ? `0 0 ${20 + audioVolume / 2}px rgba(16, 185, 129, 0.4)` 
+                      : undefined
+                  }} 
+                />
 
                 {/* Main Orb Center */}
-                <div className={`w-72 h-72 rounded-full bg-gradient-to-tr from-yellow-200 via-indigo-200 to-blue-400 shadow-2xl relative overflow-hidden flex items-center justify-center border border-white/40 transition-all duration-700 ${
-                  phase === "listening" ? "scale-105 shadow-emerald-500/10" : ""
-                }`}>
+                <div 
+                  className={`w-72 h-72 rounded-full bg-gradient-to-tr from-yellow-200 via-indigo-200 to-blue-400 shadow-2xl relative overflow-hidden flex items-center justify-center border border-white/40 transition-all duration-300`}
+                  style={{
+                    transform: phase === "listening" 
+                      ? `scale(${1 + audioVolume / 400})` 
+                      : undefined
+                  }}
+                >
                   <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
                   
                   {/* Equalizer animation overlay when AI is speaking */}
@@ -421,7 +490,16 @@ export default function InterviewPage() {
 
                   {/* Pulsing microphone status when listening */}
                   {phase === "listening" && (
-                    <div className="w-6 h-6 rounded-full bg-emerald-500/80 animate-ping relative z-10" />
+                    <div className="flex flex-col items-center justify-center relative z-10 text-emerald-600 animate-pulse">
+                      <svg className="w-8 h-8 text-white drop-shadow-md" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
+                      </svg>
+                      {audioVolume > 10 && (
+                        <span className="text-[10px] text-white font-bold tracking-wider mt-2 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                          Capturing Voice
+                        </span>
+                      )}
+                    </div>
                   )}
 
                   {/* Ring loader when processing */}
@@ -443,26 +521,47 @@ export default function InterviewPage() {
 
         {/* Center Bottom Control Buttons */}
         {phase !== "idle" && (
-          <div className="flex justify-center gap-4 z-10 mb-2">
-            <button
-              onClick={handleEndInterview}
-              className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg shadow-red-600/10 hover:shadow-red-600/20 transition-all flex items-center gap-2"
-            >
-              {/* Square Stop Icon */}
-              <span className="w-2.5 h-2.5 bg-white rounded-sm shrink-0" />
-              <span>End Interview</span>
-            </button>
+          <div className="flex flex-col items-center gap-4 z-10 mb-2">
+            
+            {/* Finsh Speaking option (manual trigger) */}
+            {phase === "listening" && (
+              <button
+                onClick={async () => {
+                  setPhase("processing");
+                  stopListening();
+                  await stopRecording();
+                  sendMessage({ type: "end_of_turn", transcript });
+                }}
+                className="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 transition-all flex items-center gap-2 animate-in zoom-in-95 duration-200"
+              >
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <span>Finish Speaking</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setShowTranscript((prev) => !prev)}
-              className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-full shadow-md border border-slate-200/60 transition-all flex items-center gap-2"
-            >
-              {/* Speech Bubble Icon */}
-              <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-              </svg>
-              <span>{showTranscript ? "Hide Transcript" : "Show Transcript"}</span>
-            </button>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={handleEndInterview}
+                className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg shadow-red-600/10 hover:shadow-red-600/20 transition-all flex items-center gap-2"
+              >
+                {/* Square Stop Icon */}
+                <span className="w-2.5 h-2.5 bg-white rounded-sm shrink-0" />
+                <span>End Interview</span>
+              </button>
+
+              <button
+                onClick={() => setShowTranscript((prev) => !prev)}
+                className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-full shadow-md border border-slate-200/60 transition-all flex items-center gap-2"
+              >
+                {/* Speech Bubble Icon */}
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+                </svg>
+                <span>{showTranscript ? "Hide Transcript" : "Show Transcript"}</span>
+              </button>
+            </div>
           </div>
         )}
 

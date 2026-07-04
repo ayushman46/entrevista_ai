@@ -7,11 +7,13 @@ interface UseAudioRecorderReturn {
   startRecording: (onData?: (data: Blob) => void) => void;
   stopRecording: () => void;
   resetAudio: () => void;
+  stream: MediaStream | null;
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -21,7 +23,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const startRecording = useCallback(async (onData?: (data: Blob) => void) => {
     onDataRef.current = onData;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { 
+          echoCancellation: true, 
+          noiseSuppression: true, 
+          autoGainControl: true 
+        } 
+      });
+
+      setStream(audioStream);
 
       const supportedTypes = [
         "audio/webm;codecs=opus",
@@ -33,7 +43,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       const mimeType = supportedTypes.find(type => MediaRecorder.isTypeSupported(type)) || "";
 
       console.log("Microphone access granted. Selected mimeType:", mimeType);
-      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      const mediaRecorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : {});
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -66,11 +76,13 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
           
           // Stop all tracks to release microphone
           recorder.stream.getTracks().forEach(track => track.stop());
+          setStream(null);
           resolve();
         };
         recorder.stop();
         setIsRecording(false);
       } else {
+        setStream(null);
         resolve();
       }
     });
@@ -81,5 +93,5 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     audioChunksRef.current = [];
   }, []);
 
-  return { isRecording, audioBlob, startRecording, stopRecording, resetAudio };
+  return { isRecording, audioBlob, startRecording, stopRecording, resetAudio, stream };
 }
