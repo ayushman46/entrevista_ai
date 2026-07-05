@@ -1,117 +1,148 @@
 import Link from "next/link";
 
+function Nav() {
+  return (
+    <header className="border-b border-slate-200/60 bg-white/70 backdrop-blur-md sticky top-0 z-50">
+      <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center">
+            <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+            </svg>
+          </div>
+          <span className="font-bold text-slate-800 text-base tracking-tight">InterviewAI</span>
+        </div>
+        <Link
+          href="/upload"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-full transition-all shadow-sm"
+        >
+          Get Started
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+const features = [
+  {
+    icon: "🎯",
+    title: "Resume-Aligned Questions",
+    desc: "Every question is generated from your actual resume — projects, skills and experiences, nothing random.",
+  },
+  {
+    icon: "🎙️",
+    title: "Real-Time Voice Conversation",
+    desc: "Speak naturally. The AI listens, responds with audio, and adapts — just like a real interviewer.",
+  },
+  {
+    icon: "📊",
+    title: "Instant Diagnostic Report",
+    desc: "After every session, get a detailed PDF report with scores, ideal answers, and actionable feedback.",
+  },
+  {
+    icon: "⚡",
+    title: "Sub-Second Latency",
+    desc: "WebSocket architecture keeps turns seamless — no awkward delays between your answer and the next question.",
+  },
+];
+
+const roles = [
+  "SDE Intern", "Frontend Developer", "Backend Developer",
+  "Full Stack Developer", "Data Analyst",
+];
+
 export default function Home() {
   return (
     <>
-      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40">
-        <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
-          </div>
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
-        </div>
-      </nav>
-      <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
-        <div className="space-y-20 py-4 text-slate-900">
-      {/* Hero Section */}
-      <section className="text-left space-y-6 max-w-3xl">
-        <h1 className="text-5xl font-semibold tracking-tight leading-tight text-slate-900">
-          Automate your technical screening with voice native artificial intelligence
-        </h1>
-        <p className="text-xl text-slate-500 leading-relaxed max-w-2xl font-light">
-          InterviewAI conducts autonomous mock assessments, evaluates resume depth, and generates deep diagnostic audits to save your engineering team hundreds of screening hours.
-        </p>
-        <div className="flex gap-4 pt-4">
-          <Link href="/upload" className="btn-primary">
-            Launch Candidate Demo
-          </Link>
-          <a href="#features" className="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-900 font-medium rounded-full transition-colors">
-            Learn More
-          </a>
-        </div>
-      </section>
+      <Nav />
+      <main className="max-w-5xl mx-auto px-6 py-16 space-y-24">
 
-      {/* Product Metrics Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-b border-slate-100 py-12">
-        <div className="space-y-2">
-          <div className="text-4xl font-semibold text-indigo-600">80 percent</div>
-          <h4 className="font-semibold text-slate-900">Engineering hours saved</h4>
-          <p className="text-slate-500 text-sm leading-relaxed">
-            Eliminate time wasted on initial technical recruiter loops. Let the AI conduct the first technical round automatically.
+        {/* Hero */}
+        <section className="text-center space-y-6 max-w-2xl mx-auto pt-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-semibold border border-indigo-100 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+            AI-Powered Mock Interviews
+          </div>
+          <h1 className="text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+            Practice Interviews That<br />
+            <span className="text-indigo-600">Actually Prepare You</span>
+          </h1>
+          <p className="text-lg text-slate-500 leading-relaxed">
+            Upload your resume, choose your target role, and speak with an AI interviewer that asks exactly the right questions based on your background.
           </p>
-        </div>
-        <div className="space-y-2">
-          <div className="text-4xl font-semibold text-indigo-600">Sub-second</div>
-          <h4 className="font-semibold text-slate-900">Response latency</h4>
-          <p className="text-slate-500 text-sm leading-relaxed">
-            Low latency WebSocket architecture ensures candidates have a natural back and forth conversation without awkward pauses.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <div className="text-4xl font-semibold text-indigo-600">100 percent</div>
-          <h4 className="font-semibold text-slate-900">Bias free assessment</h4>
-          <p className="text-slate-500 text-sm leading-relaxed">
-            Every candidate is graded strictly on technical accuracy, communication clarity, and response depth.
-          </p>
-        </div>
-      </section>
-
-      {/* Core SaaS Capabilities */}
-      <section id="features" className="space-y-12">
-        <div className="space-y-3">
-          <h2 className="text-3xl font-semibold tracking-tight text-slate-900">Platform Capabilities</h2>
-          <p className="text-slate-500 max-w-xl">
-            A comprehensive screening suite designed for recruiters and engineering managers.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-900 text-lg">Resume Context Matching</h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Upload a candidate PDF. Our system parses their experience and automatically generates a custom interview plan mapped to their skills and target role.
-            </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Link
+              href="/upload"
+              className="px-7 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-full transition-all shadow-md hover:shadow-lg"
+            >
+              Start Free Interview →
+            </Link>
+            <a href="#features" className="px-7 py-3.5 bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-full transition-all border border-slate-200 shadow-sm">
+              Learn More
+            </a>
           </div>
-
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-900 text-lg">Adaptive Questioning</h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              The AI interviewer listens to candidate answers and dynamically adjusts questions. It challenges strong topics and probes areas that need validation.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-900 text-lg">Granular Evaluation Engine</h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Every turn is scored across multiple criteria including technical correctness, communication structure, and confidence level.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="font-semibold text-slate-900 text-lg">Executive Reports</h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              On interview completion, download a complete diagnostic PDF report featuring hiring recommendations, key strengths, and structured roadmaps.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Target Roles and Audiences */}
-      <section className="bg-slate-50 rounded-3xl p-8 border border-slate-100 space-y-6">
-        <h3 className="font-semibold text-slate-900 text-xl">Supported Screening Pipelines</h3>
-        <p className="text-slate-500 text-sm leading-relaxed max-w-2xl">
-          Deploy structured voice screens across multiple disciplines. Our orchestrator adjusts its technical depth depending on the target role selected.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {["Software Development Engineer Intern", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Data Analyst"].map((role) => (
-            <span key={role} className="bg-white border border-slate-200 text-slate-700 text-xs font-semibold px-4 py-2 rounded-full shadow-sm">
-              {role}
-            </span>
-          ))}
-        </div>
         </section>
-      </div>
-    </main>
+
+        {/* Stats */}
+        <section className="grid grid-cols-3 gap-8 border-y border-slate-100 py-12">
+          {[
+            { num: "< 1s",  label: "Response latency"       },
+            { num: "100%",  label: "Resume-grounded questions" },
+            { num: "6",     label: "Questions per session"   },
+          ].map(s => (
+            <div key={s.label} className="text-center space-y-1">
+              <div className="text-4xl font-extrabold text-indigo-600">{s.num}</div>
+              <p className="text-slate-500 text-sm">{s.label}</p>
+            </div>
+          ))}
+        </section>
+
+        {/* Features */}
+        <section id="features" className="space-y-10">
+          <div className="text-center space-y-2">
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">How It Works</h2>
+            <p className="text-slate-500 text-sm max-w-md mx-auto">
+              Three steps from resume upload to a complete diagnostic report.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {features.map(f => (
+              <div key={f.title} className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-3">{f.icon}</div>
+                <h3 className="font-bold text-slate-800 text-base mb-1">{f.title}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Roles */}
+        <section className="bg-white rounded-3xl border border-slate-100 p-8 shadow-sm space-y-5">
+          <h3 className="font-bold text-slate-800 text-xl">Supported Roles</h3>
+          <p className="text-slate-500 text-sm">
+            Pick the role closest to your target position — the AI adjusts its technical depth and question types accordingly.
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            {roles.map(r => (
+              <span key={r} className="px-4 py-2 bg-slate-50 border border-slate-200 text-slate-700 text-sm font-medium rounded-full">
+                {r}
+              </span>
+            ))}
+          </div>
+          <Link
+            href="/upload"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-full transition-all shadow-md mt-2"
+          >
+            Start Your Interview →
+          </Link>
+        </section>
+
+      </main>
+      <footer className="border-t border-slate-100 py-8 mt-8">
+        <p className="text-center text-slate-400 text-xs">
+          © {new Date().getFullYear()} InterviewAI · Powered by Gemini + Google Speech · Built for candidates who want to prepare better.
+        </p>
+      </footer>
     </>
   );
 }

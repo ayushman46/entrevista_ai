@@ -2,29 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71% 4%;
+    --interview-bg: #eef0f8;
+  }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
   body {
-    background-color: theme('colors.white');
-    color: theme('colors.slate.900');
-    font-family: theme('fontFamily.sans');
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--interview-bg);
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer components {
-  .card {
-    @apply py-6 border-b border-slate-100 last:border-0;
-  }
   .btn-primary {
-    @apply bg-slate-900 hover:bg-slate-800 text-white font-medium px-6 py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-slate-900 hover:bg-slate-800 text-white font-semibold px-6 py-3 rounded-full transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
   }
   .btn-secondary {
-    @apply bg-slate-100 hover:bg-slate-200 text-slate-900 font-medium px-6 py-3 rounded-full transition-colors;
+    @apply bg-white hover:bg-slate-50 text-slate-700 font-semibold px-6 py-3 rounded-full transition-all duration-200 border border-slate-200 shadow-sm hover:shadow-md;
   }
-  .score-ring {
-    @apply inline-flex items-center justify-center w-16 h-16 rounded-full border-2 border-slate-200 font-medium text-lg;
+  .card {
+    @apply bg-white rounded-2xl border border-slate-100 shadow-sm;
   }
+  /* Custom scrollbar */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #e2e8f0 transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #e2e8f0;
+    border-radius: 9999px;
+  }
+}
+
+/* Orb animation keyframes */
+@keyframes orb-spin {
+  0%   { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+@keyframes orb-pulse-listening {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.04); }
+}
+@keyframes orb-pulse-speaking {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.02); }
+}
+@keyframes orb-idle {
+  0%, 100% { transform: scale(0.97); opacity: 0.85; }
+  50%       { transform: scale(1); opacity: 1; }
+}
+
+.orb-speaking {
+  animation: orb-spin 8s linear infinite, orb-pulse-speaking 2s ease-in-out infinite;
+}
+.orb-listening {
+  animation: orb-spin 12s linear infinite, orb-pulse-listening 1.5s ease-in-out infinite;
+}
+.orb-thinking {
+  animation: orb-spin 4s linear infinite;
+}
+.orb-idle {
+  animation: orb-idle 3s ease-in-out infinite;
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.slide-in-right {
+  animation: slide-in-right 0.25s ease-out forwards;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fade-in 0.3s ease-out forwards;
 }
