@@ -1,77 +1,79 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Bot,
+  Camera,
+  CameraOff,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  LoaderCircle,
+  Mic,
+  MicOff,
+  PanelRightClose,
+  PanelRightOpen,
+  SquarePen,
+  StopCircle,
+  Video,
+} from "lucide-react";
 import { api } from "@/services/api";
 import { useInterviewStore } from "@/store/interviewStore";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useServerAudio } from "@/hooks/useServerAudio";
 import { useInterviewWebSocket } from "@/hooks/useInterviewWebSocket";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import Link from "next/link";
+import { BrandMark } from "@/components/brand-mark";
 
 type Phase = "idle" | "greeting" | "listening" | "processing" | "completed";
 
-function PhaseIndicator({ phase }: { phase: Phase }) {
+function PhaseChip({ phase }: { phase: Phase }) {
   const config = {
-    idle: { label: "Ready", color: "bg-slate-200", text: "text-slate-600" },
-    greeting: { label: "Interviewer Speaking", color: "bg-blue-500", text: "text-blue-700 bg-blue-50" },
-    listening: { label: "Listening", color: "bg-emerald-500", text: "text-emerald-700 bg-emerald-50" },
-    processing: { label: "Processing", color: "bg-amber-500", text: "text-amber-700 bg-amber-50" },
-    completed: { label: "Completed", color: "bg-slate-500", text: "text-slate-700 bg-slate-50" }
+    idle: { label: "Ready", className: "bg-slate-100 text-slate-600" },
+    greeting: { label: "Interviewer speaking", className: "bg-sky-100 text-sky-700" },
+    listening: { label: "Recording response", className: "bg-emerald-100 text-emerald-700" },
+    processing: { label: "Processing", className: "bg-amber-100 text-amber-700" },
+    completed: { label: "Completed", className: "bg-slate-200 text-slate-700" },
   }[phase];
 
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${config.text} border border-black/5`}>
-      <span className={`w-2 h-2 rounded-full ${config.color} ${phase !== "idle" && phase !== "completed" ? "animate-pulse" : ""}`} />
+    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${config.className}`}>
       {config.label}
-    </div>
+    </span>
   );
 }
 
-function Visualizer({ phase, vol }: { phase: Phase; vol: number }) {
+function PulseVisualizer({ phase, vol }: { phase: Phase; vol: number }) {
+  const bars = phase === "greeting" ? [0.45, 0.75, 0.55, 0.85, 0.6, 0.7, 0.5] : [0.35, 0.5, 0.7, 0.85, 0.65, 0.45, 0.3];
+
   return (
-    <div className="relative w-64 h-64 flex items-center justify-center">
-      {/* Background Rings */}
-      <div className={`absolute inset-0 rounded-full border border-slate-100 transition-transform duration-700 ${phase === "listening" || phase === "greeting" ? "scale-110" : "scale-100"}`} />
-      <div className={`absolute inset-4 rounded-full border border-slate-100 transition-transform duration-1000 ${phase === "listening" || phase === "greeting" ? "scale-105" : "scale-100"}`} />
-      
-      {/* Core */}
-      <div 
-        className={`relative w-40 h-40 rounded-full bg-white shadow-xl shadow-slate-200/50 flex items-center justify-center transition-all duration-300 ${
-          phase === "processing" ? "animate-pulse" : ""
-        }`}
-        style={{ transform: phase === "listening" ? `scale(${1 + vol / 300})` : "scale(1)" }}
+    <div className="relative flex h-72 w-72 items-center justify-center">
+      <div className={`absolute inset-0 rounded-full border border-slate-200/60 transition-transform duration-700 ${phase === "listening" || phase === "greeting" ? "scale-110" : "scale-100"}`} />
+      <div className={`absolute inset-6 rounded-full border border-slate-200/50 transition-transform duration-1000 ${phase === "listening" || phase === "greeting" ? "scale-105" : "scale-100"}`} />
+      <div className="absolute inset-10 rounded-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.95),rgba(226,232,240,0.75))] shadow-[0_24px_90px_-30px_rgba(15,23,42,0.45)]" />
+
+      <div
+        className="relative flex h-44 w-44 items-center justify-center rounded-full border border-white/70 bg-white/90 shadow-[0_24px_80px_-35px_rgba(15,23,42,0.5)]"
+        style={{ transform: phase === "listening" ? `scale(${1 + vol / 260})` : "scale(1)" }}
       >
-        <div className="absolute inset-2 rounded-full bg-slate-50 flex items-center justify-center overflow-hidden">
-          {phase === "listening" ? (
-            <div className="flex items-center gap-1.5">
-              {[1, 2, 1.5, 2.5, 1.5, 2, 1].map((h, i) => (
-                <div 
-                  key={i} 
-                  className="w-1.5 bg-slate-400 rounded-full animate-wave" 
-                  style={{ height: `${Math.max(12, h * 12 * (1 + vol / 50))}px`, animationDelay: `${i * 0.1}s` }} 
-                />
-              ))}
-            </div>
-          ) : phase === "greeting" ? (
-            <div className="flex items-center gap-1.5">
-              {[2, 3, 2.5, 3.5, 2.5, 3, 2].map((h, i) => (
-                <div 
-                  key={i} 
-                  className="w-1.5 bg-blue-400 rounded-full animate-wave" 
-                  style={{ height: `${h * 12}px`, animationDelay: `${i * 0.15}s` }} 
-                />
-              ))}
-            </div>
+        <div className="flex h-28 items-end gap-1.5">
+          {(phase === "listening" || phase === "greeting") ? (
+            bars.map((bar, index) => (
+              <span
+                key={index}
+                className={`w-2 rounded-full ${phase === "greeting" ? "bg-sky-500" : "bg-slate-700"}`}
+                style={{
+                  height: `${Math.max(18, bar * 78 * (phase === "listening" ? 1 + vol / 70 : 1))}px`,
+                  animationDelay: `${index * 0.08}s`,
+                }}
+              />
+            ))
           ) : phase === "processing" ? (
-            <svg className="w-8 h-8 text-slate-300 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
+            <LoaderCircle className="h-8 w-8 animate-spin text-slate-300" />
           ) : (
-            <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
+            <Mic className="h-10 w-10 text-slate-300" />
           )}
         </div>
       </div>
@@ -85,8 +87,13 @@ export default function InterviewPage() {
   const interviewId = params.id as string;
 
   const {
-    questions, currentQuestionIndex, totalPlanned,
-    recordAnswer, addQuestion, setFinalReport, setQuestionIndex,
+    questions,
+    currentQuestionIndex,
+    totalPlanned,
+    recordAnswer,
+    addQuestion,
+    setFinalReport,
+    setQuestionIndex,
   } = useInterviewStore();
 
   const { startRecording, stopRecording, stream } = useAudioRecorder();
@@ -97,9 +104,9 @@ export default function InterviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState("");
   const [vol, setVol] = useState(0);
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(true);
   const [camStream, setCamStream] = useState<MediaStream | null>(null);
-  
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const msgEnd = useRef<HTMLDivElement | null>(null);
   const silenceRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,290 +115,515 @@ export default function InterviewPage() {
 
   const currentQ = questions[currentQuestionIndex];
 
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
-  useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [questions, phase, transcript, liveTranscript, showTranscript]);
-
-  /* Mic volume analyser */
   useEffect(() => {
-    if (!stream) { setVol(0); return; }
-    let ctx: AudioContext | null = null; let rafId: number;
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    msgEnd.current?.scrollIntoView({ behavior: "smooth" });
+  }, [questions, phase, transcript, liveTranscript, showTranscript]);
+
+  useEffect(() => {
+    if (!stream) {
+      setVol(0);
+      return;
+    }
+
+    let ctx: AudioContext | null = null;
+    let rafId = 0;
+
     try {
       ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const src = ctx.createMediaStreamSource(stream);
-      const an = ctx.createAnalyser(); an.fftSize = 256;
-      src.connect(an);
-      const buf = new Uint8Array(an.frequencyBinCount);
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const buffer = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
-        an.getByteFrequencyData(buf);
-        const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+        analyser.getByteFrequencyData(buffer);
+        const avg = buffer.reduce((acc, value) => acc + value, 0) / buffer.length;
         setVol(Math.min(100, Math.round((avg / 128) * 100)));
         rafId = requestAnimationFrame(tick);
       };
+
       tick();
-    } catch {}
-    return () => { cancelAnimationFrame(rafId); ctx?.close().catch(() => {}); };
+    } catch {
+      // Ignore audio meter failures; the interview can still continue.
+    }
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ctx?.close().catch(() => {});
+    };
   }, [stream]);
 
   useEffect(() => {
-    if (videoRef.current && camStream) videoRef.current.srcObject = camStream;
+    if (videoRef.current && camStream) {
+      videoRef.current.srcObject = camStream;
+    }
   }, [camStream]);
 
   const toggleCam = async () => {
-    if (camStream) { camStream.getTracks().forEach(t => t.stop()); setCamStream(null); return; }
-    try { setCamStream(await navigator.mediaDevices.getUserMedia({ video: true })); }
-    catch { setError("Camera access denied."); }
+    if (camStream) {
+      camStream.getTracks().forEach((track) => track.stop());
+      setCamStream(null);
+      return;
+    }
+
+    try {
+      setCamStream(await navigator.mediaDevices.getUserMedia({ video: true }));
+    } catch {
+      setError("Camera access was denied.");
+    }
   };
 
-  const handleWSMessage = useCallback((msg: any) => {
-    if (msg.type === "transcript") {
-      setLiveTranscript(msg.text);
-    } else if (msg.type === "turn_complete") {
-      if (msg.interview_complete) {
-        setPhase("completed");
-        recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—");
-        camStream?.getTracks().forEach(t => t.stop());
-        api.completeInterview(interviewId).then(r => { setFinalReport(r); router.push(`/report/${interviewId}`); });
-      } else if (msg.next_question) {
-        addQuestion(msg.next_question, msg.topic || "Technical", [], msg.audio_url);
-        recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—");
-        setQuestionIndex(currentQuestionIndex + 1);
-        setLiveTranscript("");
-        startRecording(chunk => sendAudioRef.current?.(chunk));
-        resetTranscript();
-        if (msg.audio_url) {
-          setPhase("greeting"); startListening();
-          playAudio(msg.audio_url, () => setPhase(p => p === "greeting" ? "listening" : p));
-        } else { setPhase("listening"); startListening(); }
+  const handleWSMessage = useCallback(
+    (msg: any) => {
+      if (msg.type === "transcript") {
+        setLiveTranscript(msg.text);
+        return;
       }
-    } else if (msg.type === "error") {
-      setError(msg.message); setPhase("listening"); resetTranscript(); startListening();
-      startRecording(chunk => sendAudioRef.current?.(chunk));
-    }
-  }, [currentQuestionIndex, interviewId, liveTranscript, transcript, playAudio, recordAnswer, addQuestion, setFinalReport, setQuestionIndex, router, startListening, resetTranscript, startRecording, camStream]);
+
+      if (msg.type === "turn_complete") {
+        if (msg.interview_complete) {
+          setPhase("completed");
+          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—");
+          camStream?.getTracks().forEach((track) => track.stop());
+          api.completeInterview(interviewId).then((report) => {
+            setFinalReport(report);
+            router.push(`/report/${interviewId}`);
+          });
+          return;
+        }
+
+        if (msg.next_question) {
+          addQuestion(msg.next_question, msg.topic || "Technical", [], msg.audio_url);
+          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—");
+          setQuestionIndex(currentQuestionIndex + 1);
+          setLiveTranscript("");
+          startRecording((chunk) => sendAudioRef.current?.(chunk));
+          resetTranscript();
+
+          if (msg.audio_url) {
+            setPhase("greeting");
+            startListening();
+            playAudio(msg.audio_url, () => setPhase((value) => (value === "greeting" ? "listening" : value)));
+          } else {
+            setPhase("listening");
+            startListening();
+          }
+        }
+        return;
+      }
+
+      if (msg.type === "error") {
+        setError(msg.message);
+        setPhase("listening");
+        resetTranscript();
+        startListening();
+        startRecording((chunk) => sendAudioRef.current?.(chunk));
+      }
+    },
+    [
+      addQuestion,
+      camStream,
+      currentQuestionIndex,
+      interviewId,
+      liveTranscript,
+      playAudio,
+      recordAnswer,
+      resetTranscript,
+      router,
+      setFinalReport,
+      setQuestionIndex,
+      startListening,
+      startRecording,
+      transcript,
+    ]
+  );
 
   const { isConnected, sendAudio, sendMessage } = useInterviewWebSocket(interviewId, handleWSMessage);
 
-  const handleSendAudio = useCallback((chunk: Blob) => {
-    if (phaseRef.current === "listening" || phaseRef.current === "greeting") sendAudio(chunk);
-  }, [sendAudio]);
+  const handleSendAudio = useCallback(
+    (chunk: Blob) => {
+      if (phaseRef.current === "listening" || phaseRef.current === "greeting") {
+        sendAudio(chunk);
+      }
+    },
+    [sendAudio]
+  );
 
-  useEffect(() => { sendAudioRef.current = handleSendAudio; }, [handleSendAudio]);
+  useEffect(() => {
+    sendAudioRef.current = handleSendAudio;
+  }, [handleSendAudio]);
 
-  /* VAD */
   useEffect(() => {
     if (phase !== "listening" || transcript.trim().length <= 1) return;
+
     if (silenceRef.current) clearTimeout(silenceRef.current);
     silenceRef.current = setTimeout(async () => {
-      setPhase("processing"); stopListening(); await stopRecording();
+      setPhase("processing");
+      stopListening();
+      await stopRecording();
       sendMessage({ type: "end_of_turn", transcript });
     }, 2200);
-    return () => { if (silenceRef.current) clearTimeout(silenceRef.current); };
-  }, [transcript, phase, stopListening, sendMessage, stopRecording]);
 
-  /* Barge-in */
-  useEffect(() => {
-    if (phase === "greeting" && transcript.trim().length > 1) { stopAudio(); setPhase("listening"); }
-  }, [transcript, phase, stopAudio]);
+    return () => {
+      if (silenceRef.current) clearTimeout(silenceRef.current);
+    };
+  }, [phase, sendMessage, stopListening, stopRecording, transcript]);
 
-  /* Keep STT alive */
   useEffect(() => {
-    if (phase !== "idle" && phase !== "completed" && phase !== "processing" && !isListening && isSupported)
+    if (phase === "greeting" && transcript.trim().length > 1) {
+      stopAudio();
+      setPhase("listening");
+    }
+  }, [phase, stopAudio, transcript]);
+
+  useEffect(() => {
+    if (phase !== "idle" && phase !== "completed" && phase !== "processing" && !isListening && isSupported) {
       startListening();
-  }, [isListening, phase, isSupported, startListening]);
+    }
+  }, [isListening, isSupported, phase, startListening]);
 
   const startInterview = () => {
     if (!currentQ) return;
-    if (!isSupported) { setError("Speech recognition requires Chrome or Safari."); return; }
-    setPhase("greeting"); setError(null); resetTranscript();
-    startRecording(chunk => sendAudioRef.current?.(chunk));
+    if (!isSupported) {
+      setError("Speech recognition requires Chrome or Safari.");
+      return;
+    }
+
+    setPhase("greeting");
+    setError(null);
+    resetTranscript();
+    startRecording((chunk) => sendAudioRef.current?.(chunk));
     startListening();
+
     if (currentQ.audioUrl) {
-      playAudio(currentQ.audioUrl, () => setPhase(p => p === "greeting" ? "listening" : p));
-    } else { setPhase("listening"); }
+      playAudio(currentQ.audioUrl, () => setPhase((value) => (value === "greeting" ? "listening" : value)));
+    } else {
+      setPhase("listening");
+    }
   };
 
   const finishSpeaking = async () => {
-    setPhase("processing"); stopListening(); await stopRecording();
+    setPhase("processing");
+    stopListening();
+    await stopRecording();
     sendMessage({ type: "end_of_turn", transcript });
   };
 
   const endInterview = async () => {
-    setPhase("processing"); stopAudio(); stopListening(); await stopRecording();
-    camStream?.getTracks().forEach(t => t.stop());
+    setPhase("processing");
+    stopAudio();
+    stopListening();
+    await stopRecording();
+    camStream?.getTracks().forEach((track) => track.stop());
     try {
-      const r = await api.completeInterview(interviewId);
-      setFinalReport(r); router.push(`/report/${interviewId}`);
-    } catch { router.push(`/report/${interviewId}`); }
+      const report = await api.completeInterview(interviewId);
+      setFinalReport(report);
+      router.push(`/report/${interviewId}`);
+    } catch {
+      router.push(`/report/${interviewId}`);
+    }
   };
 
-  useEffect(() => () => {
-    stopAudio(); stopRecording(); stopListening();
-    camStream?.getTracks().forEach(t => t.stop());
-  }, [stopAudio, stopRecording, stopListening, camStream]);
+  useEffect(
+    () => () => {
+      stopAudio();
+      stopRecording();
+      stopListening();
+      camStream?.getTracks().forEach((track) => track.stop());
+    },
+    [camStream, stopAudio, stopRecording, stopListening]
+  );
 
   if (!currentQ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAFAFA]">
-        <div className="flex flex-col items-center gap-4 text-slate-400">
-          <svg className="w-8 h-8 animate-spin text-slate-300" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-sm font-medium">Connecting to Session...</p>
+      <div className="flex min-h-screen items-center justify-center text-white">
+        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+          <LoaderCircle className="h-5 w-5 animate-spin text-white" />
+          <span className="text-sm font-medium text-slate-300">Connecting to session</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen flex bg-[#FAFAFA] text-slate-900 overflow-hidden">
-      
-      {/* Main Area */}
-      <div className="flex-1 flex flex-col relative transition-all duration-300">
-        {/* Header */}
-        <header className="px-6 h-16 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-md z-10">
-          <Link href="/upload" onClick={() => camStream?.getTracks().forEach(t => t.stop())} className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Exit
-          </Link>
-          
-          <div className="text-sm font-semibold px-3 py-1 bg-slate-100 text-slate-600 rounded-md">
-            Question {currentQuestionIndex + 1} of {totalPlanned}
+    <main className="min-h-screen text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-4 lg:px-6">
+        <header className="glass-panel flex items-center justify-between rounded-[1.5rem] px-5 py-4">
+          <BrandMark />
+
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 md:flex">
+              <span className="inline-flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-amber-400"}`} />
+                {isConnected ? "Connected" : "Syncing"}
+              </span>
+              <span className="h-4 w-px bg-white/10" />
+              Question {currentQuestionIndex + 1} of {totalPlanned}
+            </div>
+
+            <Link
+              href="/upload"
+              onClick={() => camStream?.getTracks().forEach((track) => track.stop())}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Exit
+            </Link>
           </div>
         </header>
 
-        {/* Studio Canvas */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6 relative">
-          
-          {phase === "idle" ? (
-            <div className="max-w-md text-center animate-fade-up">
-              <div className="w-20 h-20 bg-white border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold mb-3">Ready when you are</h2>
-              <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-                Ensure your microphone is connected and you are in a quiet environment. The AI will guide the conversation naturally.
-              </p>
-              
-              {!isSupported && <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">Speech recognition requires Chrome or Safari.</div>}
-              
-              <button
-                onClick={startInterview}
-                disabled={!isConnected}
-                className="px-8 py-3.5 rounded-full bg-slate-900 text-white font-medium hover:bg-slate-800 transition-all shadow-md active:scale-95 disabled:opacity-50"
-              >
-                {isConnected ? "Start Interview" : "Connecting..."}
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center animate-fade-in">
-              <PhaseIndicator phase={phase} />
-              
-              <div className="my-12">
-                <Visualizer phase={phase} vol={vol} />
-              </div>
+        <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_22rem]">
+          <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(14,18,34,0.96),rgba(8,10,22,0.98))] shadow-[0_24px_100px_-55px_rgba(0,0,0,0.95)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.14),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.08),transparent_28%)]" />
 
-              {error && <div className="mt-4 px-4 py-2 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">{error}</div>}
-              
-              {phase === "listening" && (
-                <p className="text-sm text-slate-400 mt-4 animate-pulse">Listening to your response...</p>
-              )}
-            </div>
-          )}
-
-        </main>
-
-        {/* Bottom Controls */}
-        {phase !== "idle" && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-white/80 backdrop-blur-md border border-slate-200 p-2 rounded-full shadow-lg">
-            {phase === "listening" && (
-              <button onClick={finishSpeaking} className="px-4 py-2 text-sm font-medium bg-slate-900 text-white rounded-full hover:bg-slate-800 transition-colors">
-                Done Speaking
-              </button>
-            )}
-            <button onClick={() => setShowTranscript(!showTranscript)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-full transition-colors flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
-              Transcript
-            </button>
-            <div className="w-px h-6 bg-slate-200 mx-1" />
-            <button onClick={endInterview} className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-full transition-colors">
-              End Session
-            </button>
-          </div>
-        )}
-
-        {/* Camera PiP */}
-        <div className="absolute bottom-6 left-6 z-20">
-          {camStream ? (
-            <div className="relative w-48 h-32 rounded-xl overflow-hidden border border-slate-200 shadow-lg bg-black">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              <button onClick={toggleCam} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center text-xs hover:bg-red-500 transition-colors">
-                ✕
-              </button>
-            </div>
-          ) : (
-            <button onClick={toggleCam} className="p-3 bg-white border border-slate-200 rounded-full shadow-sm text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Transcript Sidebar */}
-      <div className={`w-96 bg-white border-l border-slate-100 flex flex-col transition-all duration-300 ${showTranscript ? "translate-x-0" : "translate-x-full absolute right-0 h-full"}`} style={{ zIndex: 40 }}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-900">Live Transcript</h3>
-          <button onClick={() => setShowTranscript(false)} className="text-slate-400 hover:text-slate-600 p-1">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {questions.map((q, idx) => {
-            const isCurrent = idx === currentQuestionIndex && phase !== "completed";
-            if (isCurrent) return null;
-            return (
-              <div key={idx} className="space-y-4">
+            <div className="relative flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
                 <div>
-                  <span className="text-xs font-semibold text-blue-600 mb-1 block">AI Interviewer</span>
-                  <p className="text-sm bg-slate-50 p-3 rounded-tr-xl rounded-b-xl rounded-tl-sm text-slate-700">{q.question}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">Live interview</p>
+                  <h1 className="mt-1 text-lg font-semibold text-white">Focus on the question, the app handles the rest.</h1>
                 </div>
-                {q.answer && (
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs font-semibold text-slate-500 mb-1 block">You</span>
-                    <p className="text-sm bg-slate-900 text-white p-3 rounded-tl-xl rounded-b-xl rounded-tr-sm text-right">{q.answer}</p>
-                  </div>
-                )}
+                <PhaseChip phase={phase} />
               </div>
-            );
-          })}
 
-          {phase !== "completed" && currentQ && (
-            <div className="space-y-4">
-              <div>
-                <span className="text-xs font-semibold text-blue-600 mb-1 block flex items-center gap-2">
-                  AI Interviewer {phase === "greeting" && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />}
-                </span>
-                <p className="text-sm bg-blue-50/50 border border-blue-100 p-3 rounded-tr-xl rounded-b-xl rounded-tl-sm text-slate-800">{currentQ.question}</p>
+              <div className="grid flex-1 gap-6 px-6 py-6 xl:grid-cols-[1fr_18rem]">
+                <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
+                  {phase === "idle" ? (
+                    <div className="max-w-lg space-y-6">
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                        <Bot className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h2 className="text-3xl font-semibold tracking-tight text-white">Ready to begin</h2>
+                        <p className="mt-3 text-sm leading-7 text-slate-400">
+                          Make sure your microphone is on, then start the session. The interviewer will begin with a question based on your resume and selected role.
+                        </p>
+                      </div>
+
+                      {!isSupported && (
+                        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+                          Speech recognition requires Chrome or Safari.
+                        </div>
+                      )}
+
+                      <button
+                        onClick={startInterview}
+                        disabled={!isConnected}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isConnected ? "Start interview" : "Connecting"}
+                        <ArrowIcon />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-8">
+                      <PulseVisualizer phase={phase} vol={vol} />
+
+                      <div className="max-w-xl space-y-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <PhaseChip phase={phase} />
+                        </div>
+                        <h2 className="text-2xl font-semibold tracking-tight text-white">
+                          {phase === "listening"
+                            ? "Speak naturally."
+                            : phase === "greeting"
+                              ? "Listening to the interviewer."
+                              : phase === "processing"
+                                ? "Processing your answer."
+                                : "Interview completed."}
+                        </h2>
+                        <p className="text-sm leading-7 text-slate-400">
+                          {phase === "listening"
+                            ? "Answer in your own words. The live transcript updates as you speak."
+                            : phase === "greeting"
+                              ? "The AI is asking the question and the session is preparing for your reply."
+                              : phase === "processing"
+                                ? "Your answer is being evaluated before the next prompt is generated."
+                                : "You can review the report in the next screen."}
+                        </p>
+                      </div>
+
+                      {error && (
+                        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                          {error}
+                        </div>
+                      )}
+
+                      {phase === "listening" && (
+                        <p className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          Listening to your response
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-[1.5rem] border border-white/10 bg-black/30 p-5 text-white">
+                    <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Current prompt</p>
+                    <p className="mt-3 text-lg leading-8">{currentQ.question}</p>
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <SquarePen className="h-4 w-4 text-slate-400" />
+                      Live transcript
+                    </div>
+                    <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+                      {phase === "listening"
+                        ? transcript || liveTranscript || "Start speaking and your answer will appear here."
+                        : phase === "processing"
+                          ? transcript || liveTranscript || "Wrapping up the current answer..."
+                          : currentQ.answer || "No answer recorded yet."}
+                    </p>
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <Video className="h-4 w-4 text-slate-400" />
+                      Camera preview
+                    </div>
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-950">
+                      {camStream ? (
+                        <div className="relative aspect-video">
+                          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                          <button
+                            onClick={toggleCam}
+                            className="absolute right-3 top-3 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/70"
+                          >
+                            <CameraOff className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={toggleCam}
+                          className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-white/5 text-white transition hover:bg-white/10"
+                        >
+                          <Camera className="h-6 w-6 text-sky-300" />
+                          <span className="text-sm font-medium">Enable camera</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              {(phase === "listening" || phase === "processing") && (
-                <div className="flex flex-col items-end">
-                  <span className="text-xs font-semibold text-slate-500 mb-1 block flex items-center gap-2">
-                    {phase === "listening" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />} You
-                  </span>
-                  <p className="text-sm bg-slate-900 text-white p-3 rounded-tl-xl rounded-b-xl rounded-tr-sm text-right">
-                    {transcript || liveTranscript || <span className="opacity-50">Listening...</span>}
-                  </p>
+
+              {phase !== "idle" && (
+                <div className="absolute bottom-5 left-1/2 -translate-x-1/2">
+                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+                    {phase === "listening" && (
+                      <button
+                        onClick={finishSpeaking}
+                        className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
+                      >
+                        <MicOff className="h-4 w-4" />
+                        Done speaking
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowTranscript((value) => !value)}
+                      className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
+                    >
+                      {showTranscript ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+                      Transcript
+                    </button>
+                    <button
+                      onClick={endInterview}
+                      className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                    >
+                      <StopCircle className="h-4 w-4" />
+                      End session
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-          )}
-          <div ref={msgEnd} />
+          </section>
+
+          <aside
+            className={[
+            "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_24px_100px_-55px_rgba(0,0,0,0.95)] backdrop-blur-xl transition-all duration-300",
+              showTranscript ? "translate-x-0" : "translate-x-[calc(100%+1rem)] lg:translate-x-0 lg:opacity-60",
+            ].join(" ")}
+          >
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Transcript</p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">Conversation trail</h2>
+                </div>
+                <button onClick={() => setShowTranscript(false)} className="rounded-full p-2 text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5">
+                <div className="space-y-5">
+                  {questions.map((q, index) => {
+                    const isCurrent = index === currentQuestionIndex && phase !== "completed";
+                    if (isCurrent) return null;
+
+                    return (
+                      <div key={`${q.question}-${index}`} className="space-y-3">
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            <Bot className="h-3.5 w-3.5" />
+                            Interviewer
+                          </div>
+                          <p className="mt-3 text-sm leading-7 text-slate-200">{q.question}</p>
+                        </div>
+                        {q.answer && (
+                          <div className="ml-8 rounded-2xl bg-slate-950 p-4 text-white">
+                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                              <Mic className="h-3.5 w-3.5" />
+                              You
+                            </div>
+                            <p className="mt-3 text-sm leading-7 text-white/90">{q.answer}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {phase !== "completed" && currentQ && (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
+                          <Bot className="h-3.5 w-3.5" />
+                          Interviewer
+                        </div>
+                          <p className="mt-3 text-sm leading-7 text-slate-200">{currentQ.question}</p>
+                      </div>
+                      {(phase === "listening" || phase === "processing") && (
+                        <div className="ml-8 rounded-2xl bg-slate-950 p-4 text-white">
+                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                            <Mic className="h-3.5 w-3.5" />
+                            You
+                          </div>
+                          <p className="mt-3 text-sm leading-7 text-white/90">
+                            {transcript || liveTranscript || "Listening..."}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div ref={msgEnd} />
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
-    </div>
+    </main>
   );
+}
+
+function ArrowIcon() {
+  return <ChevronRight className="h-4 w-4" />;
 }
