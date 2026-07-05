@@ -6,57 +6,23 @@ import { useInterviewStore } from "@/store/interviewStore";
 import type { RoleType } from "@/types/interview";
 import Link from "next/link";
 
-const ROLES: { value: RoleType; label: string; tag: string }[] = [
-  { value: "sde_intern",          label: "SDE Intern",           tag: "Entry Level" },
-  { value: "frontend_developer",  label: "Frontend Developer",   tag: "Mid Level"   },
-  { value: "backend_developer",   label: "Backend Developer",    tag: "Mid Level"   },
-  { value: "fullstack_developer", label: "Full Stack Developer", tag: "Mid Level"   },
-  { value: "data_analyst",        label: "Data Analyst",         tag: "Analyst"     },
+const ROLES: { value: RoleType; label: string; desc: string }[] = [
+  { value: "sde_intern",          label: "Software Engineer Intern", desc: "Focus on algorithms & basics" },
+  { value: "frontend_developer",  label: "Frontend Developer",       desc: "React, UI/UX, Web Core" },
+  { value: "backend_developer",   label: "Backend Developer",        desc: "APIs, Databases, System Design" },
+  { value: "fullstack_developer", label: "Full Stack Developer",     desc: "End-to-end architecture" },
+  { value: "data_analyst",        label: "Data Analyst",             desc: "SQL, Python, Data Viz" },
 ];
-
-const STEPS = ["Resume", "Configure", "Ready"];
-
-function StepIndicator({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-2 mb-10">
-      {STEPS.map((s, i) => (
-        <div key={s} className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all"
-              style={{
-                background: i < current ? "rgba(124,58,237,0.3)" : i === current ? "linear-gradient(135deg,#7C3AED,#6366F1)" : "rgba(255,255,255,0.06)",
-                color: i <= current ? "#A78BFA" : "#475569",
-                border: i < current ? "1px solid rgba(124,58,237,0.5)" : "none",
-              }}
-            >
-              {i < current ? "✓" : i + 1}
-            </div>
-            <span
-              className="text-xs font-medium"
-              style={{ color: i <= current ? "#94A3B8" : "#475569" }}
-            >
-              {s}
-            </span>
-          </div>
-          {i < STEPS.length - 1 && (
-            <div className="w-8 h-px" style={{ background: i < current ? "rgba(124,58,237,0.5)" : "rgba(255,255,255,0.08)" }} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function UploadPage() {
   const router = useRouter();
   const { setResume, setRole, role, resumeId, startInterview } = useInterviewStore();
-  const [file, setFile]               = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [candidateName, setCandidateName] = useState("");
-  const [step, setStep]               = useState<"upload" | "config" | "starting">("upload");
-  const [error, setError]             = useState<string | null>(null);
-  const [uploading, setUploading]     = useState(false);
-  const [drag, setDrag]               = useState(false);
+  const [step, setStep] = useState<"upload" | "config" | "starting">("upload");
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [drag, setDrag] = useState(false);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setDrag(false);
@@ -90,43 +56,45 @@ export default function UploadPage() {
     }
   };
 
-  const stepIndex = step === "upload" ? 0 : step === "config" ? 1 : 2;
-
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#0C0C14" }}>
-      {/* Nav */}
-      <nav
-        className="border-b px-6 h-14 flex items-center justify-between shrink-0"
-        style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(12,12,20,0.9)" }}
-      >
+    <div className="min-h-screen bg-[#FAFAFA] text-slate-900 flex flex-col">
+      <nav className="border-b border-slate-100 bg-white px-6 h-16 flex items-center justify-between shrink-0">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-base font-bold" style={{ color: "#A78BFA" }}>Entrevista</span>
-          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(124,58,237,0.2)", color: "#A78BFA", border: "1px solid rgba(124,58,237,0.3)" }}>AI</span>
+          <div className="w-6 h-6 rounded-lg bg-slate-900 flex items-center justify-center">
+            <div className="w-2 h-2 bg-white rounded-full" />
+          </div>
+          <span className="font-semibold text-slate-900">Entrevista</span>
         </Link>
-        <span className="text-xs" style={{ color: "#475569" }}>Step {stepIndex + 1} of 3</span>
+        <div className="flex gap-2">
+          {["Resume", "Configure", "Interview"].map((s, i) => (
+            <div key={s} className="flex items-center gap-2">
+              <span className={`text-xs font-medium px-2 py-1 rounded-md ${
+                (step === "upload" && i === 0) || (step === "config" && i === 1) || (step === "starting" && i === 2)
+                  ? "bg-slate-100 text-slate-900" 
+                  : "text-slate-400"
+              }`}>
+                {s}
+              </span>
+              {i < 2 && <span className="text-slate-200">/</span>}
+            </div>
+          ))}
+        </div>
       </nav>
 
-      {/* Main */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-lg">
-
-          <StepIndicator current={stepIndex} />
-
-          {/* ── UPLOAD STEP ─────────────────────────── */}
+      <main className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-xl bg-white p-8 sm:p-12 rounded-[2rem] border border-slate-100 shadow-sm animate-fade-up">
+          
           {step === "upload" && (
-            <div className="animate-[fade-up_0.4s_ease-out_forwards]">
-              <h1 className="text-2xl font-bold mb-1" style={{ color: "#F1F5F9" }}>Upload your resume</h1>
-              <p className="text-sm mb-8" style={{ color: "#94A3B8" }}>
-                We'll use it to craft personalised interview questions just for you.
-              </p>
+            <div className="space-y-8">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold tracking-tight mb-2">Upload your resume</h1>
+                <p className="text-slate-500 text-sm">We'll use it to contextually generate your interview questions.</p>
+              </div>
 
-              {/* Drop zone */}
               <div
-                className="relative rounded-2xl p-10 flex flex-col items-center gap-4 cursor-pointer transition-all duration-200"
-                style={{
-                  background: drag ? "rgba(124,58,237,0.1)" : file ? "rgba(124,58,237,0.06)" : "rgba(28,28,46,0.6)",
-                  border: `2px dashed ${drag ? "rgba(124,58,237,0.7)" : file ? "rgba(124,58,237,0.4)" : "rgba(255,255,255,0.1)"}`,
-                }}
+                className={`relative border-2 border-dashed rounded-3xl p-12 text-center transition-all cursor-pointer ${
+                  drag ? "border-blue-400 bg-blue-50/50" : file ? "border-slate-300 bg-slate-50" : "border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                }`}
                 onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
                 onDragLeave={() => setDrag(false)}
                 onDrop={handleDrop}
@@ -136,146 +104,137 @@ export default function UploadPage() {
                   id="file-input" type="file" accept=".pdf,.docx,.doc" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setFile(f); setError(null); } }}
                 />
-                <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl"
-                  style={{ background: file ? "rgba(124,58,237,0.2)" : "rgba(255,255,255,0.05)" }}
-                >
-                  {file ? "📄" : "⬆"}
+                
+                <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center mx-auto mb-4 text-slate-400">
+                  {file ? (
+                    <svg className="w-8 h-8 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                  )}
                 </div>
+                
                 {file ? (
-                  <div className="text-center">
-                    <p className="font-semibold text-sm" style={{ color: "#F1F5F9" }}>{file.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "#94A3B8" }}>{(file.size / 1024).toFixed(0)} KB · Click to change</p>
+                  <div>
+                    <p className="font-semibold text-slate-700 mb-1">{file.name}</p>
+                    <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(0)} KB</p>
                   </div>
                 ) : (
-                  <div className="text-center">
-                    <p className="font-semibold text-sm" style={{ color: "#F1F5F9" }}>Drop your resume here</p>
-                    <p className="text-xs mt-0.5" style={{ color: "#94A3B8" }}>or click to browse · PDF or DOCX</p>
+                  <div>
+                    <p className="font-medium text-slate-700 mb-1">Click to upload or drag and drop</p>
+                    <p className="text-xs text-slate-400">PDF or DOCX (max 5MB)</p>
                   </div>
                 )}
               </div>
 
-              {error && (
-                <div className="mt-3 px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#FCA5A5" }}>
-                  {error}
-                </div>
-              )}
+              {error && <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100">{error}</div>}
 
               <button
                 onClick={handleUpload}
                 disabled={!file || uploading}
-                className="mt-5 w-full py-3.5 rounded-full text-sm font-bold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ background: "linear-gradient(135deg, #7C3AED, #6366F1)", color: "white", boxShadow: file ? "0 4px 20px rgba(124,58,237,0.3)" : "none" }}
+                className="w-full py-4 rounded-full bg-slate-900 text-white font-medium hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {uploading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Analysing Resume…
-                  </span>
-                ) : "Continue →"}
+                  <>
+                    <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing Resume...
+                  </>
+                ) : "Continue"}
               </button>
-
-              <p className="text-center text-xs mt-4" style={{ color: "#475569" }}>
-                No account required · Your data is only used for this session
-              </p>
             </div>
           )}
 
-          {/* ── CONFIG STEP ─────────────────────────── */}
           {step === "config" && (
-            <div className="animate-[fade-up_0.4s_ease-out_forwards]">
-              <button
-                onClick={() => setStep("upload")}
-                className="flex items-center gap-1.5 text-xs mb-6 transition-colors"
-                style={{ color: "#94A3B8" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "#F1F5F9")}
-                onMouseLeave={e => (e.currentTarget.style.color = "#94A3B8")}
-              >
-                ← Back
-              </button>
-
-              <h1 className="text-2xl font-bold mb-1" style={{ color: "#F1F5F9" }}>Configure your interview</h1>
-              <p className="text-sm mb-8" style={{ color: "#94A3B8" }}>Tell us your name and the role you're targeting.</p>
+            <div className="space-y-8">
+              <div className="text-center relative">
+                <button 
+                  onClick={() => setStep("upload")}
+                  className="absolute left-0 top-1 text-slate-400 hover:text-slate-900 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+                <h1 className="text-2xl font-bold tracking-tight mb-2">Configure Session</h1>
+                <p className="text-slate-500 text-sm">Set up your target role for the mock interview.</p>
+              </div>
 
               <div className="space-y-6">
-                {/* Name */}
                 <div>
-                  <label className="text-xs font-semibold block mb-2" style={{ color: "#94A3B8" }}>
-                    YOUR NAME <span style={{ color: "#475569" }}>(optional)</span>
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Candidate Name (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Ayush Sharma"
                     value={candidateName}
-                    onChange={e => setCandidateName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all"
-                    style={{
-                      background: "rgba(28,28,46,0.8)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      color: "#F1F5F9",
-                    }}
-                    onFocus={e => (e.currentTarget.style.borderColor = "rgba(124,58,237,0.5)")}
-                    onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
+                    onChange={(e) => setCandidateName(e.target.value)}
+                    placeholder="e.g. Jane Doe"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
                   />
                 </div>
 
-                {/* Role */}
                 <div>
-                  <label className="text-xs font-semibold block mb-3" style={{ color: "#94A3B8" }}>TARGET ROLE</label>
-                  <div className="space-y-2">
-                    {ROLES.map(r => (
-                      <button
+                  <label className="block text-sm font-medium text-slate-700 mb-3">Target Role</label>
+                  <div className="grid gap-3">
+                    {ROLES.map((r) => (
+                      <div
                         key={r.value}
                         onClick={() => setRole(r.value)}
-                        className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-sm transition-all duration-150"
-                        style={{
-                          background: role === r.value ? "rgba(124,58,237,0.15)" : "rgba(28,28,46,0.6)",
-                          border: `1px solid ${role === r.value ? "rgba(124,58,237,0.5)" : "rgba(255,255,255,0.07)"}`,
-                          color: role === r.value ? "#A78BFA" : "#94A3B8",
-                        }}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                          role === r.value 
+                            ? "border-slate-900 bg-slate-50 ring-1 ring-slate-900" 
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
                       >
-                        <span className="font-medium">{r.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs" style={{ color: "#475569" }}>{r.tag}</span>
-                          {role === r.value && <span style={{ color: "#A78BFA" }}>✓</span>}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className={`font-medium ${role === r.value ? "text-slate-900" : "text-slate-700"}`}>
+                              {r.label}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">{r.desc}</p>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            role === r.value ? "border-slate-900 bg-slate-900" : "border-slate-300"
+                          }`}>
+                            {role === r.value && <div className="w-2 h-2 rounded-full bg-white" />}
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {error && (
-                <div className="mt-4 px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#FCA5A5" }}>
-                  {error}
-                </div>
-              )}
+              {error && <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100">{error}</div>}
 
               <button
                 onClick={handleStart}
-                className="mt-6 w-full py-3.5 rounded-full text-sm font-bold transition-all hover:scale-[1.02]"
-                style={{ background: "linear-gradient(135deg, #7C3AED, #6366F1)", color: "white", boxShadow: "0 4px 20px rgba(124,58,237,0.3)" }}
+                className="w-full py-4 rounded-full bg-slate-900 text-white font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 active:scale-[0.98]"
               >
-                Begin Interview →
+                Begin Interview
               </button>
             </div>
           )}
 
-          {/* ── STARTING ─────────────────────────────── */}
           {step === "starting" && (
-            <div className="flex flex-col items-center gap-6 py-12 text-center">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-full" style={{ background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.2)" }} />
-                <div className="absolute inset-0 w-16 h-16 border-2 border-transparent rounded-full animate-spin" style={{ borderTopColor: "#7C3AED" }} />
+            <div className="py-12 flex flex-col items-center text-center space-y-6">
+              <div className="relative w-20 h-20">
+                <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
+                <div className="absolute inset-0 border-4 border-slate-900 rounded-full border-t-transparent animate-spin" />
               </div>
               <div>
-                <p className="font-semibold text-base" style={{ color: "#F1F5F9" }}>Preparing your interview…</p>
-                <p className="text-sm mt-1" style={{ color: "#94A3B8" }}>Generating questions from your resume</p>
+                <h2 className="text-lg font-semibold text-slate-900">Preparing your environment</h2>
+                <p className="text-sm text-slate-500 mt-1">Analyzing resume and generating questions...</p>
               </div>
             </div>
           )}
+
         </div>
-      </div>
+      </main>
     </div>
   );
 }

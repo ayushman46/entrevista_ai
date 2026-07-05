@@ -2,14 +2,27 @@ import type { AnswerResponse, InterviewStartResponse, FinalReport, ResumeUploadR
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function networkErrorMessage(err: unknown): string {
+  if (err instanceof TypeError && (err.message === "Failed to fetch" || err.message.includes("fetch"))) {
+    return "Cannot reach the backend server. Make sure it is running on port 8000 (run: uvicorn app.main:app --reload in the interviewai-backend folder).";
+  }
+  if (err instanceof Error) return err.message;
+  return "An unexpected error occurred.";
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+  } catch (err) {
+    throw new Error(networkErrorMessage(err));
+  }
   if (!res.ok) {
     const error = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(error.detail || "API request failed");
+    throw new Error(error.detail || `Request failed: ${res.status}`);
   }
   return res.json();
 }
@@ -18,11 +31,16 @@ export const api = {
   async uploadResume(file: File): Promise<ResumeUploadResponse> {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE_URL}/resume/upload`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) throw new Error("Resume upload failed");
+    let res: Response;
+    try {
+      res = await fetch(`${BASE_URL}/resume/upload`, { method: "POST", body: form });
+    } catch (err) {
+      throw new Error(networkErrorMessage(err));
+    }
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(error.detail || "Resume upload failed.");
+    }
     return res.json();
   },
 
@@ -36,11 +54,7 @@ export const api = {
   async submitAnswer(interviewId: string, questionIndex: number, answerText: string): Promise<AnswerResponse> {
     return request<AnswerResponse>("/interview/answer", {
       method: "POST",
-      body: JSON.stringify({
-        interview_id: interviewId,
-        question_index: questionIndex,
-        answer_text: answerText,
-      }),
+      body: JSON.stringify({ interview_id: interviewId, question_index: questionIndex, answer_text: answerText }),
     });
   },
 
@@ -49,15 +63,15 @@ export const api = {
     form.append("interview_id", interviewId);
     form.append("question_index", questionIndex.toString());
     form.append("audio_file", audioBlob, "answer.webm");
-
-    const res = await fetch(`${BASE_URL}/interview/answer_audio`, {
-      method: "POST",
-      body: form,
-    });
-    
+    let res: Response;
+    try {
+      res = await fetch(`${BASE_URL}/interview/answer_audio`, { method: "POST", body: form });
+    } catch (err) {
+      throw new Error(networkErrorMessage(err));
+    }
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(error.detail || "Audio submission failed");
+      throw new Error(error.detail || "Audio submission failed.");
     }
     return res.json();
   },
