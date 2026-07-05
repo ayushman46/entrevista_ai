@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "InterviewAI — AI Mock Interview Platform",
-  description: "Practice technical interviews with an AI interviewer. Get real-time feedback, adaptive questions, and detailed reports.",
+  title: "Entrevista AI — Intelligent Interview Coach",
+  description: "Practice job interviews with an AI that knows your resume. Real-time voice conversations, adaptive questions, and detailed feedback.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="min-h-screen antialiased" style={{ background: "#eef0f8" }}>
+    <html lang="en" className={`${inter.variable} h-full`}>
+      <body className="font-[var(--font-inter),system-ui,sans-serif] min-h-screen bg-[#0C0C14] text-[#F1F5F9] antialiased">
         {children}
       </body>
     </html>

@@ -7,338 +7,321 @@ import Link from "next/link";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export default function ReportPage() {
-  const params = useParams();
-  const router = useRouter();
-  const interviewId = params.id as string;
-  const { finalReport, setFinalReport } = useInterviewStore();
-  
-  const [report, setReport] = useState<any>(finalReport);
-  const [loading, setLoading] = useState(!finalReport);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (finalReport) {
-      setReport(finalReport);
-      setLoading(false);
-    } else if (interviewId) {
-      setLoading(true);
-      setError(null);
-      api.completeInterview(interviewId)
-        .then((data) => {
-          setReport(data);
-          setFinalReport(data);
-        })
-        .catch((err) => {
-          console.error("Error loading report from API:", err);
-          setError("Failed to retrieve the report. Please make sure the backend is active.");
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    }
-  }, [finalReport, interviewId, setFinalReport]);
-
-  const getScoreColor = (score: number) => {
-    if (score >= 7.5) return "text-emerald-400";
-    if (score >= 5.5) return "text-amber-400";
-    return "text-rose-400";
-  };
-
-  const getScoreBarColor = (score: number) => {
-    if (score >= 7.5) return "bg-emerald-500 shadow-emerald-500/20";
-    if (score >= 5.5) return "bg-amber-500 shadow-amber-500/20";
-    return "bg-rose-500 shadow-rose-500/20";
-  };
-
-  const getRecommendationBadge = (recommendation: string) => {
-    const rec = recommendation?.toLowerCase() || "";
-    if (rec.includes("strong")) {
-      return (
-        <span className="px-4 py-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm font-bold uppercase tracking-wider rounded-full shadow-lg shadow-emerald-500/5 animate-pulse">
-          🌟 Strong Hire
-        </span>
-      );
-    }
-    if (rec.includes("hire")) {
-      return (
-        <span className="px-4 py-1.5 bg-teal-500/10 border border-teal-500/30 text-teal-400 text-sm font-bold uppercase tracking-wider rounded-full shadow-lg shadow-teal-500/5">
-          ✅ Hire
-        </span>
-      );
-    }
-    if (rec.includes("maybe")) {
-      return (
-        <span className="px-4 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-bold uppercase tracking-wider rounded-full shadow-lg shadow-amber-500/5">
-          🤔 Maybe
-        </span>
-      );
-    }
-    return (
-      <span className="px-4 py-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm font-bold uppercase tracking-wider rounded-full shadow-lg shadow-rose-500/5">
-        ❌ Do Not Hire
-      </span>
-    );
-  };
-
-  if (loading) {
-    return (
-      <>
-        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
-          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
-            </div>
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
-          </div>
-        </nav>
-        <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
-          <div className="max-w-3xl mx-auto px-6 py-12 flex flex-col items-center justify-center min-h-[70vh] text-center">
-        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6" />
-        <h2 className="text-xl font-semibold text-white mb-2">Analyzing Candidate Answers...</h2>
-        <p className="text-slate-400 max-w-sm text-sm">
-          Please wait while the LLM orchestrator aggregates grades, compiles feedback, and compiles the final diagnostics PDF.
-        </p>
-      </div>
-    </main>
-    </>
-    );
-  }
-
-  if (error || !report) {
-    return (
-      <>
-        <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
-          <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
-            </div>
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
-          </div>
-        </nav>
-        <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
-          <div className="max-w-3xl mx-auto px-6 py-16 text-center bg-slate-900/40 border border-slate-800/80 text-white rounded-3xl p-8 shadow-2xl backdrop-blur-md">
-        <div className="w-16 h-16 bg-red-950/40 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-          <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <h2 className="text-2xl font-semibold text-white mb-3">Failed to load report</h2>
-        <p className="text-slate-400 max-w-md mx-auto mb-8 text-sm leading-relaxed">
-          {error || "We couldn't retrieve the report details for this interview session. Make sure you completed the assessment."}
-        </p>
-        <div className="flex justify-center gap-4">
-          <button onClick={() => router.refresh()} className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-full transition-colors text-sm border border-slate-700">
-            Retry Connection
-          </button>
-          <Link href="/upload" className="btn-primary text-sm">
-            Start New Interview
-          </Link>
-        </div>
-      </div>
-    </main>
-    </>
-    );
-  }
-
-  const pdfLink = report.pdf_url?.startsWith("http") 
-    ? report.pdf_url 
-    : `${BASE_URL}${report.pdf_url}`;
+function ScoreRing({ score, label }: { score: number; label: string }) {
+  const pct = Math.min(100, (score / 10) * 100);
+  const color =
+    score >= 7.5 ? "#10B981" :
+    score >= 5.5 ? "#F59E0B" : "#EF4444";
+  const radius = 28, circ = 2 * Math.PI * radius;
+  const dash = (pct / 100) * circ;
 
   return (
-    <>
-      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200/40 w-full">
-        <div className="max-w-4xl mx-auto px-6 py-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="font-semibold tracking-tight text-lg text-slate-800">InterviewAI</span>
-          </div>
-          <div className="text-xs font-medium text-slate-400 uppercase tracking-widest">Powered by AI</div>
-        </div>
-      </nav>
-      <main className="max-w-4xl mx-auto px-6 py-12 w-full flex-1">
-        <div className="max-w-3xl mx-auto px-6 py-8 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950/20 text-white rounded-3xl border border-slate-800/80 shadow-2xl min-h-[85vh] flex flex-col justify-between space-y-8 animate-in fade-in duration-500">
-      
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-800/60 gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/20 animate-pulse" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">Diagnostic Audit Report</h1>
-          </div>
-          <p className="text-slate-400 text-sm font-medium">
-            Candidate: <span className="text-white font-semibold">{report.candidate_name}</span> · Role: <span className="text-indigo-400 capitalize">{report.role?.replace("_", " ")}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2 self-start md:self-auto">
-          {getRecommendationBadge(report.hiring_recommendation)}
-        </div>
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative w-20 h-20 flex items-center justify-center">
+        <svg className="absolute inset-0 -rotate-90" width="80" height="80">
+          <circle cx="40" cy="40" r={radius} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5" />
+          <circle
+            cx="40" cy="40" r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ - dash}`}
+            style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+          />
+        </svg>
+        <span className="text-xl font-extrabold relative z-10" style={{ color }}>{score?.toFixed(1)}</span>
       </div>
-
-      {/* Overview/Executive Summary Card */}
-      <div className="bg-slate-900/60 border border-slate-800 p-6 rounded-2xl shadow-inner backdrop-blur-md relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-1.5 h-full bg-indigo-500" />
-        <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2.5">Executive Summary</h2>
-        <p className="text-slate-200 text-sm leading-relaxed italic">
-          "{report.summary}"
-        </p>
-      </div>
-
-      {/* Scores dashboard */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: "Overall Rating", score: report.overall_score, desc: "Aggregated score" },
-          { label: "Technical Ability", score: report.technical_score, desc: "Code & theory correctness" },
-          { label: "Communication", score: report.communication_score, desc: "Clarity & articulation" },
-          { label: "Confidence Level", score: report.confidence_score, desc: "Security & speed" },
-        ].map(({ label, score, desc }) => (
-          <div key={label} className="bg-slate-900/40 border border-slate-800/60 p-5 rounded-2xl flex flex-col justify-between shadow-sm relative group hover:border-slate-800 transition-all">
-            <div>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">{label}</span>
-              <p className="text-slate-400 text-[9px] leading-tight mb-4">{desc}</p>
-            </div>
-            <div>
-              <div className="flex items-baseline gap-1.5 mb-2">
-                <span className={`text-3xl font-extrabold tracking-tight ${getScoreColor(score)}`}>
-                  {score?.toFixed(1)}
-                </span>
-                <span className="text-slate-600 text-xs font-medium">/ 10.0</span>
-              </div>
-              <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/30">
-                <div 
-                  className={`h-full rounded-full transition-all duration-1000 ${getScoreBarColor(score)}`}
-                  style={{ width: `${(score || 0) * 10}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Diagnostic breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Strengths card */}
-        <div className="bg-slate-900/40 border border-slate-800/50 p-6 rounded-2xl shadow-sm flex flex-col space-y-4">
-          <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2 pb-3 border-b border-slate-800/60">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/20" />
-            Key Technical Strengths
-          </h3>
-          <ul className="space-y-3 flex-1">
-            {report.strengths?.map((s: string, i: number) => (
-              <li key={i} className="text-slate-300 text-xs leading-relaxed flex gap-2.5 items-start">
-                <span className="text-emerald-400 font-bold text-sm leading-none pt-0.5">✓</span>
-                <span>{s}</span>
-              </li>
-            ))}
-            {(!report.strengths || report.strengths.length === 0) && (
-              <p className="text-slate-500 text-xs italic">No specific strengths recorded.</p>
-            )}
-          </ul>
-        </div>
-
-        {/* Weaknesses card */}
-        <div className="bg-slate-900/40 border border-slate-800/50 p-6 rounded-2xl shadow-sm flex flex-col space-y-4">
-          <h3 className="text-sm font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2 pb-3 border-b border-slate-800/60">
-            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/20" />
-            Focus Areas to Improve
-          </h3>
-          <ul className="space-y-3 flex-1">
-            {report.weaknesses?.map((w: string, i: number) => (
-              <li key={i} className="text-slate-300 text-xs leading-relaxed flex gap-2.5 items-start">
-                <span className="text-rose-400 font-bold text-sm leading-none pt-0.5">⚠</span>
-                <span>{w}</span>
-              </li>
-            ))}
-            {(!report.weaknesses || report.weaknesses.length === 0) && (
-              <p className="text-slate-500 text-xs italic">No critical improvement areas identified.</p>
-            )}
-          </ul>
-        </div>
-      </div>
-
-      {/* Learning Roadmap */}
-      <div className="bg-slate-900/30 border border-slate-800/60 p-6 rounded-2xl shadow-sm space-y-5">
-        <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2 pb-3 border-b border-slate-800/60">
-          <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/20" />
-          Recommended Learning Roadmap
-        </h3>
-        <div className="space-y-4">
-          {report.learning_roadmap?.map((item: string, i: number) => (
-            <div key={i} className="flex gap-4 items-start relative group">
-              <div className="w-6 h-6 rounded-full bg-indigo-950 border border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-300 shrink-0 shadow-md">
-                {i + 1}
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-200 text-xs leading-relaxed">{item}</p>
-              </div>
-            </div>
-          ))}
-          {(!report.learning_roadmap || report.learning_roadmap.length === 0) && (
-            <p className="text-slate-500 text-xs italic">No customized learning paths needed.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Detailed Q&A Prep Guide */}
-      <div className="bg-slate-900/30 border border-slate-800/60 p-6 rounded-2xl shadow-sm space-y-6">
-        <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-2 pb-3 border-b border-slate-800/60">
-          <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/20" />
-          Detailed Q&A Breakdown & Preparation Guide
-        </h3>
-        <div className="space-y-6">
-          {report.questions?.map((q: any, i: number) => (
-            <div key={i} className="space-y-3 pb-6 border-b border-slate-800/30 last:border-b-0 last:pb-0">
-              <div className="flex gap-2 items-start">
-                <span className="text-indigo-400 font-bold text-xs font-mono pt-0.5">Q{i + 1}.</span>
-                <p className="text-white text-xs font-semibold leading-relaxed">{q.question}</p>
-              </div>
-              <div className="bg-slate-950/45 border border-slate-900/40 p-4 rounded-xl text-left">
-                <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
-                  Candidate Answer (Score: {q.score}/10)
-                </span>
-                <p className="text-slate-300 text-xs leading-relaxed italic">
-                  "{q.candidate_answer || q.answer || "No answer recorded"}"
-                </p>
-              </div>
-              <div className="bg-indigo-950/20 border border-indigo-900/30 p-4 rounded-xl text-left relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
-                <span className="text-indigo-400 text-[9px] font-bold uppercase tracking-wider block mb-1">
-                  Best Possible Answer (For Prep)
-                </span>
-                <p className="text-slate-200 text-xs leading-relaxed">
-                  {q.best_answer || "No model answer generated"}
-                </p>
-              </div>
-            </div>
-          ))}
-          {(!report.questions || report.questions.length === 0) && (
-            <p className="text-slate-500 text-xs italic">No detailed question diagnostics available.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Footer controls */}
-      <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-800/60 justify-between items-center">
-        <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">
-          Assessment Session ID: {report.interview_id?.slice(0, 8)}...
-        </p>
-        <div className="flex gap-3 w-full sm:w-auto">
-          {report.pdf_url && (
-            <a
-              href={pdfLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 sm:flex-initial px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-full shadow-lg shadow-indigo-600/10 hover:shadow-indigo-600/20 transition-all text-center"
-            >
-              Download PDF Report ↓
-            </a>
-          )}
-          <Link href="/upload" className="flex-1 sm:flex-initial px-6 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold rounded-full shadow-md transition-all text-center">
-            New Interview →
-          </Link>
-        </div>
-      </div>
+      <span className="text-xs font-medium text-center" style={{ color: "#94A3B8" }}>{label}</span>
     </div>
-    </main>
-    </>
+  );
+}
+
+function Badge({ rec }: { rec: string }) {
+  const r = (rec || "").toLowerCase();
+  const cfg =
+    r.includes("strong") ? { label: "⭐ Strong Hire",  color: "#10B981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.3)" } :
+    r.includes("hire")   ? { label: "✓ Hire",          color: "#10B981", bg: "rgba(16,185,129,0.1)",  border: "rgba(16,185,129,0.25)" } :
+    r.includes("maybe")  ? { label: "◑ Maybe",         color: "#F59E0B", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" } :
+                           { label: "✕ No Hire",        color: "#EF4444", bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.25)"  };
+  return (
+    <span
+      className="px-4 py-1.5 rounded-full text-sm font-bold"
+      style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.color }}
+    >
+      {cfg.label}
+    </span>
+  );
+}
+
+export default function ReportPage() {
+  const params      = useParams();
+  const router      = useRouter();
+  const interviewId = params.id as string;
+  const { finalReport, setFinalReport } = useInterviewStore();
+
+  const [report, setReport] = useState<any>(finalReport);
+  const [loading, setLoading] = useState(!finalReport);
+  const [error, setError]   = useState<string | null>(null);
+
+  useEffect(() => {
+    if (finalReport) { setReport(finalReport); setLoading(false); return; }
+    if (!interviewId) return;
+    setLoading(true);
+    api.completeInterview(interviewId)
+      .then(d => { setReport(d); setFinalReport(d); })
+      .catch(() => setError("Failed to load report. Make sure the backend is running."))
+      .finally(() => setLoading(false));
+  }, [finalReport, interviewId, setFinalReport]);
+
+  const pdfLink = report?.pdf_url?.startsWith("http") ? report.pdf_url : `${BASE_URL}${report?.pdf_url}`;
+
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div className="min-h-screen" style={{ background: "#0C0C14" }}>
+      <nav
+        className="border-b px-6 h-14 flex items-center justify-between"
+        style={{ borderColor: "rgba(255,255,255,0.06)", background: "rgba(12,12,20,0.9)" }}
+      >
+        <Link href="/" className="flex items-center gap-2">
+          <span className="font-bold text-base" style={{ color: "#A78BFA" }}>Entrevista</span>
+          <span className="text-xs font-semibold px-1.5 py-0.5 rounded" style={{ background: "rgba(124,58,237,0.2)", color: "#A78BFA", border: "1px solid rgba(124,58,237,0.3)" }}>AI</span>
+        </Link>
+        <Link href="/upload" className="text-xs px-4 py-2 rounded-full transition-colors" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}>
+          New Interview
+        </Link>
+      </nav>
+      <main className="max-w-4xl mx-auto px-6 py-10">{children}</main>
+    </div>
+  );
+
+  if (loading) return (
+    <Shell>
+      <div className="flex flex-col items-center justify-center py-32 gap-5">
+        <div className="w-12 h-12 rounded-full border-2" style={{ borderColor: "rgba(124,58,237,0.2)", borderTopColor: "#7C3AED", animation: "spin 0.8s linear infinite" }} />
+        <p className="font-semibold" style={{ color: "#F1F5F9" }}>Generating your report…</p>
+        <p className="text-sm" style={{ color: "#94A3B8" }}>This usually takes a few seconds</p>
+      </div>
+    </Shell>
+  );
+
+  if (error || !report) return (
+    <Shell>
+      <div className="flex flex-col items-center justify-center py-32 gap-5 text-center">
+        <div className="text-4xl">⚠</div>
+        <p className="font-semibold" style={{ color: "#F1F5F9" }}>Could not load report</p>
+        <p className="text-sm max-w-sm" style={{ color: "#94A3B8" }}>{error || "The report data could not be retrieved."}</p>
+        <div className="flex gap-3 mt-2">
+          <button onClick={() => router.refresh()} className="px-5 py-2.5 rounded-full text-sm font-medium" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}>Retry</button>
+          <Link href="/upload" className="px-5 py-2.5 rounded-full text-sm font-semibold" style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)", color: "white" }}>New Interview</Link>
+        </div>
+      </div>
+    </Shell>
+  );
+
+  return (
+    <Shell>
+      <div className="space-y-6 animate-[fade-up_0.4s_ease-out_forwards]">
+
+        {/* Header */}
+        <div
+          className="p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          style={{ background: "rgba(28,28,46,0.6)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse" />
+              <h1 className="text-xl font-bold" style={{ color: "#F1F5F9" }}>Interview Report</h1>
+            </div>
+            <p className="text-sm" style={{ color: "#94A3B8" }}>
+              <span style={{ color: "#F1F5F9" }}>{report.candidate_name || "Candidate"}</span>
+              {" · "}
+              <span style={{ color: "#A78BFA" }}>{(report.role || "").replace(/_/g, " ")}</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge rec={report.hiring_recommendation} />
+            {report.pdf_url && (
+              <a
+                href={pdfLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105"
+                style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)", color: "white", boxShadow: "0 4px 15px rgba(124,58,237,0.3)" }}
+              >
+                ↓ PDF Report
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Score rings */}
+        <div
+          className="p-6 rounded-2xl"
+          style={{ background: "rgba(28,28,46,0.6)", border: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <h2 className="text-sm font-semibold mb-6" style={{ color: "#94A3B8" }}>PERFORMANCE SCORES</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+            <ScoreRing score={report.overall_score}       label="Overall"       />
+            <ScoreRing score={report.technical_score}     label="Technical"     />
+            <ScoreRing score={report.communication_score} label="Communication" />
+            <ScoreRing score={report.confidence_score}    label="Confidence"    />
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div
+          className="p-6 rounded-2xl relative overflow-hidden"
+          style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.2)" }}
+        >
+          <div className="absolute top-0 left-0 w-1 h-full rounded-l-2xl" style={{ background: "linear-gradient(to bottom,#7C3AED,#6366F1)" }} />
+          <h2 className="text-xs font-bold mb-3 uppercase tracking-widest" style={{ color: "#A78BFA" }}>Executive Summary</h2>
+          <p className="text-sm leading-relaxed" style={{ color: "#E2E8F0" }}>"{report.summary}"</p>
+        </div>
+
+        {/* Strengths & Weaknesses */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            className="p-6 rounded-2xl"
+            style={{ background: "rgba(16,185,129,0.05)", border: "1px solid rgba(16,185,129,0.15)" }}
+          >
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: "#10B981" }}>
+              <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+              Key Strengths
+            </h3>
+            <ul className="space-y-2.5">
+              {report.strengths?.map((s: string, i: number) => (
+                <li key={i} className="flex gap-2.5 items-start text-sm" style={{ color: "#CBD5E1" }}>
+                  <span style={{ color: "#10B981" }} className="shrink-0 mt-0.5">✓</span>
+                  {s}
+                </li>
+              )) || <p className="text-xs" style={{ color: "#475569" }}>No strengths recorded.</p>}
+            </ul>
+          </div>
+          <div
+            className="p-6 rounded-2xl"
+            style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)" }}
+          >
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: "#EF4444" }}>
+              <span className="w-2 h-2 rounded-full bg-[#EF4444]" />
+              Areas to Improve
+            </h3>
+            <ul className="space-y-2.5">
+              {report.weaknesses?.map((w: string, i: number) => (
+                <li key={i} className="flex gap-2.5 items-start text-sm" style={{ color: "#CBD5E1" }}>
+                  <span style={{ color: "#EF4444" }} className="shrink-0 mt-0.5">⚠</span>
+                  {w}
+                </li>
+              )) || <p className="text-xs" style={{ color: "#475569" }}>No areas identified.</p>}
+            </ul>
+          </div>
+        </div>
+
+        {/* Learning Roadmap */}
+        {report.learning_roadmap?.length > 0 && (
+          <div
+            className="p-6 rounded-2xl"
+            style={{ background: "rgba(28,28,46,0.6)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-5" style={{ color: "#A78BFA" }}>Learning Roadmap</h3>
+            <div className="space-y-4">
+              {report.learning_roadmap.map((item: string, i: number) => (
+                <div key={i} className="flex gap-4 items-start">
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ background: "rgba(124,58,237,0.2)", border: "1px solid rgba(124,58,237,0.35)", color: "#A78BFA" }}
+                  >
+                    {i + 1}
+                  </div>
+                  <p className="text-sm leading-relaxed pt-0.5" style={{ color: "#CBD5E1" }}>{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Q&A Breakdown */}
+        {report.questions?.length > 0 && (
+          <div
+            className="p-6 rounded-2xl"
+            style={{ background: "rgba(28,28,46,0.6)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-6" style={{ color: "#A78BFA" }}>
+              Question-by-Question Breakdown
+            </h3>
+            <div className="space-y-8">
+              {report.questions.map((q: any, i: number) => {
+                const sc = q.score || 0;
+                const scColor = sc >= 7.5 ? "#10B981" : sc >= 5.5 ? "#F59E0B" : "#EF4444";
+                return (
+                  <div key={i} className="space-y-3 pb-8 border-b last:pb-0 last:border-b-0" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs font-bold font-mono shrink-0 mt-0.5" style={{ color: "#A78BFA" }}>Q{i + 1}.</span>
+                      <p className="text-sm font-semibold" style={{ color: "#F1F5F9" }}>{q.question}</p>
+                      <span
+                        className="ml-auto shrink-0 px-2 py-0.5 rounded-full text-xs font-bold"
+                        style={{ background: `${scColor}18`, color: scColor, border: `1px solid ${scColor}40` }}
+                      >
+                        {sc}/10
+                      </span>
+                    </div>
+
+                    {/* Candidate answer */}
+                    <div
+                      className="p-4 rounded-xl"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                    >
+                      <p className="text-xs font-semibold mb-1.5" style={{ color: "#94A3B8" }}>Your Answer</p>
+                      <p className="text-sm leading-relaxed italic" style={{ color: "#94A3B8" }}>
+                        "{q.candidate_answer || q.answer || "No answer recorded"}"
+                      </p>
+                    </div>
+
+                    {/* Best answer */}
+                    {q.best_answer && (
+                      <div
+                        className="p-4 rounded-xl relative overflow-hidden"
+                        style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.18)" }}
+                      >
+                        <div className="absolute top-0 left-0 w-0.5 h-full" style={{ background: "linear-gradient(to bottom,#7C3AED,#6366F1)" }} />
+                        <p className="text-xs font-semibold mb-1.5" style={{ color: "#A78BFA" }}>Ideal Answer</p>
+                        <p className="text-sm leading-relaxed" style={{ color: "#CBD5E1" }}>{q.best_answer}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Footer CTA */}
+        <div className="flex justify-between items-center pb-4">
+          <p className="text-xs font-mono" style={{ color: "#475569" }}>
+            Session: {report.interview_id?.slice(0, 12)}…
+          </p>
+          <div className="flex gap-3">
+            {report.pdf_url && (
+              <a
+                href={pdfLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 rounded-full text-sm font-semibold transition-all hover:scale-105"
+                style={{ background: "linear-gradient(135deg,#7C3AED,#6366F1)", color: "white", boxShadow: "0 4px 15px rgba(124,58,237,0.25)" }}
+              >
+                ↓ Download PDF
+              </a>
+            )}
+            <Link
+              href="/upload"
+              className="px-5 py-2.5 rounded-full text-sm font-semibold transition-all"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8" }}
+            >
+              New Interview →
+            </Link>
+          </div>
+        </div>
+
+      </div>
+    </Shell>
   );
 }
