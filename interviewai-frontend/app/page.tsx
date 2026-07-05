@@ -20,22 +20,22 @@ export default function Page() {
           <div className="brand-mark">V</div>
           <div>
             <p className="brand-name">VitaHire</p>
-            <p className="brand-tag">Practice interviews that feel real</p>
+            <p className="brand-tag">Production-grade AI interviews</p>
           </div>
         </div>
-        <a className="button button-secondary" href="/setup">Start practice interview</a>
+        <a className="button button-secondary" href="/setup">Start interview</a>
       </header>
 
       <main className="page-main">
         <section className="hero hero-simple section">
           <div className="hero-copy reveal">
-            <span className="eyebrow">AI interview practice</span>
-            <h1>Practice for the role you want, using the resume you already have.</h1>
+            <span className="eyebrow">AI interview platform</span>
+            <h1>Interview for the role you want, using the resume you already have.</h1>
             <p className="hero-text">
               Upload your resume, enter your name, choose the role, and start a focused interview built to match the job description.
             </p>
             <div className="hero-actions">
-              <a className="button button-primary" href="/setup">Start practice interview</a>
+              <a className="button button-primary" href="/setup">Start interview</a>
               <a className="button button-ghost" href="#how-it-works">How it works</a>
             </div>
           </div>
@@ -58,7 +58,7 @@ export default function Page() {
           <article className="mini-card reveal">
             <span>01</span>
             <h2>Add your details</h2>
-            <p>Enter your name and the role you want to practice for.</p>
+            <p>Enter your name and the role you want to interview for.</p>
           </article>
           <article className="mini-card reveal">
             <span>02</span>
@@ -68,7 +68,7 @@ export default function Page() {
           <article className="mini-card reveal">
             <span>03</span>
             <h2>Start interviewing</h2>
-            <p>Go straight into the interview UI and begin practicing right away.</p>
+            <p>Go straight into the interview UI and begin your interview right away.</p>
           </article>
         </section>
       </main>

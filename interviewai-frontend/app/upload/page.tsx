@@ -100,7 +100,7 @@ export default function UploadPage() {
             </h1>
 
             <p className="mt-5 max-w-lg text-base leading-8 text-slate-300">
-              Upload a resume, enter the candidate name, choose the role, and start a clean practice flow built for real interviews.
+              Upload a resume, enter the candidate name, choose the role, and start a production-grade interview flow.
             </p>
 
             <div className="mt-10 space-y-4">

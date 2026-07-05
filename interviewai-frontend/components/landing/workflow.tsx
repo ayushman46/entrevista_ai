@@ -14,7 +14,7 @@ export function WorkflowCards() {
         },
         {
           step: "03",
-          title: "Start practice",
+          title: "Start interview",
           description: "Launch the interview and move straight into the candidate UI.",
         },
       ].map((item) => (

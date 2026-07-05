@@ -188,7 +188,7 @@ export default function InterviewPage() {
       if (msg.type === "turn_complete") {
         if (msg.interview_complete) {
           setPhase("completed");
-          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—");
+          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—", msg.evaluation);
           camStream?.getTracks().forEach((track) => track.stop());
           api.completeInterview(interviewId).then((report) => {
             setFinalReport(report);
@@ -199,7 +199,7 @@ export default function InterviewPage() {
 
         if (msg.next_question) {
           addQuestion(msg.next_question, msg.topic || "Technical", [], msg.audio_url);
-          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—");
+          recordAnswer(currentQuestionIndex, msg.transcript || liveTranscript || transcript || "—", msg.evaluation);
           setQuestionIndex(currentQuestionIndex + 1);
           setLiveTranscript("");
           startRecording((chunk) => sendAudioRef.current?.(chunk));
@@ -351,47 +351,42 @@ export default function InterviewPage() {
   }
 
   return (
-    <main className="min-h-screen text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-4 lg:px-6">
-        <header className="glass-panel flex items-center justify-between rounded-[1.5rem] px-5 py-4">
-          <BrandMark />
+    <>
+      <div className="page-shell">
+        <div className="ambient ambient-one"></div>
+        <div className="ambient ambient-two"></div>
 
-          <div className="flex items-center gap-3">
+        <header className="topbar">
+          <div className="brand">
+            <div className="brand-mark">V</div>
+            <div>
+              <p className="brand-name">VitaHire</p>
+              <p className="brand-tag">Live interview</p>
+            </div>
+          </div>
+          <div className="topbar-actions">
             <div className="hidden items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 md:flex">
               <span className="inline-flex items-center gap-2">
                 <span className={`h-2.5 w-2.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-amber-400"}`} />
                 {isConnected ? "Connected" : "Syncing"}
               </span>
-              <span className="h-4 w-px bg-white/10" />
-              Question {currentQuestionIndex + 1} of {totalPlanned}
             </div>
-
-            <Link
-              href="/upload"
-              onClick={() => camStream?.getTracks().forEach((track) => track.stop())}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Exit
-            </Link>
+            <Link className="button button-secondary" href="/resume" onClick={() => camStream?.getTracks().forEach((track) => track.stop())}>Exit</Link>
+            <button className="button button-primary" onClick={endInterview}>Finish session</button>
           </div>
         </header>
 
-        <div className="mt-4 grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_22rem]">
-          <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(14,18,34,0.96),rgba(8,10,22,0.98))] shadow-[0_24px_100px_-55px_rgba(0,0,0,0.95)]">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.14),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(34,197,94,0.08),transparent_28%)]" />
-
-            <div className="relative flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.32em] text-slate-400">Live interview</p>
-                  <h1 className="mt-1 text-lg font-semibold text-white">Focus on the question, the app handles the rest.</h1>
-                </div>
-                <PhaseChip phase={phase} />
+        <main className="page-main">
+          <section className="section interview-layout">
+            <div className="interview-main">
+              <div className="session-banner">
+                <span>Role: <strong>{useInterviewStore.getState().role.replace(/_/g, ' ')}</strong></span>
+                <span>Candidate: <strong>{useInterviewStore.getState().candidateName || "Candidate"}</strong></span>
+                <span>Question {currentQuestionIndex + 1} of {totalPlanned}</span>
               </div>
 
-              <div className="grid flex-1 gap-6 px-6 py-6 xl:grid-cols-[1fr_18rem]">
-                <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-white/10 bg-white/5 p-6 text-center backdrop-blur">
+              {/* Central interaction area */}
+              <div className="flex flex-col items-center justify-center rounded-[1.75rem] border border-white/10 bg-white/5 p-6 text-center backdrop-blur" style={{ minHeight: '400px' }}>
                   {phase === "idle" ? (
                     <div className="max-w-lg space-y-6">
                       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-white">
@@ -416,14 +411,14 @@ export default function InterviewPage() {
                         className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {isConnected ? "Start interview" : "Connecting"}
-                        <ArrowIcon />
+                        <ChevronRight className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-8">
+                    <div className="flex flex-col items-center justify-center gap-8 w-full relative pb-16">
                       <PulseVisualizer phase={phase} vol={vol} />
 
-                      <div className="max-w-xl space-y-3">
+                      <div className="max-w-xl space-y-3 relative z-10">
                         <div className="flex items-center justify-center gap-2">
                           <PhaseChip phase={phase} />
                         </div>
@@ -448,182 +443,96 @@ export default function InterviewPage() {
                       </div>
 
                       {error && (
-                        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                        <div className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200 relative z-10">
                           {error}
                         </div>
                       )}
-
-                      {phase === "listening" && (
-                        <p className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200">
-                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                          Listening to your response
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  <div className="rounded-[1.5rem] border border-white/10 bg-black/30 p-5 text-white">
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-400">Current prompt</p>
-                    <p className="mt-3 text-lg leading-8">{currentQ.question}</p>
-                  </div>
-
-                  <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                      <SquarePen className="h-4 w-4 text-slate-400" />
-                      Live transcript
-                    </div>
-                    <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
-                      {phase === "listening"
-                        ? transcript || liveTranscript || "Start speaking and your answer will appear here."
-                        : phase === "processing"
-                          ? transcript || liveTranscript || "Wrapping up the current answer..."
-                          : currentQ.answer || "No answer recorded yet."}
-                    </p>
-                  </div>
-
-                  <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                      <Video className="h-4 w-4 text-slate-400" />
-                      Camera preview
-                    </div>
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-950">
-                      {camStream ? (
-                        <div className="relative aspect-video">
-                          <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                      
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-20">
+                        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+                          {phase === "listening" && (
+                            <button
+                              onClick={finishSpeaking}
+                              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
+                            >
+                              <MicOff className="h-4 w-4" />
+                              Done speaking
+                            </button>
+                          )}
                           <button
-                            onClick={toggleCam}
-                            className="absolute right-3 top-3 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/70"
+                            onClick={endInterview}
+                            className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
                           >
-                            <CameraOff className="h-4 w-4" />
+                            <StopCircle className="h-4 w-4" />
+                            End session
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          onClick={toggleCam}
-                          className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-white/5 text-white transition hover:bg-white/10"
-                        >
-                          <Camera className="h-6 w-6 text-sky-300" />
-                          <span className="text-sm font-medium">Enable camera</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {phase !== "idle" && (
-                <div className="absolute bottom-5 left-1/2 -translate-x-1/2">
-                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-                    {phase === "listening" && (
-                      <button
-                        onClick={finishSpeaking}
-                        className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
-                      >
-                        <MicOff className="h-4 w-4" />
-                        Done speaking
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setShowTranscript((value) => !value)}
-                      className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
-                    >
-                      {showTranscript ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-                      Transcript
-                    </button>
-                    <button
-                      onClick={endInterview}
-                      className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
-                    >
-                      <StopCircle className="h-4 w-4" />
-                      End session
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <aside
-            className={[
-            "overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-[0_24px_100px_-55px_rgba(0,0,0,0.95)] backdrop-blur-xl transition-all duration-300",
-              showTranscript ? "translate-x-0" : "translate-x-[calc(100%+1rem)] lg:translate-x-0 lg:opacity-60",
-            ].join(" ")}
-          >
-            <div className="flex h-full flex-col">
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">Transcript</p>
-                  <h2 className="mt-1 text-lg font-semibold text-white">Conversation trail</h2>
-                </div>
-                <button onClick={() => setShowTranscript(false)} className="rounded-full p-2 text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-5">
-                <div className="space-y-5">
-                  {questions.map((q, index) => {
-                    const isCurrent = index === currentQuestionIndex && phase !== "completed";
-                    if (isCurrent) return null;
-
-                    return (
-                      <div key={`${q.question}-${index}`} className="space-y-3">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                            <Bot className="h-3.5 w-3.5" />
-                            Interviewer
-                          </div>
-                          <p className="mt-3 text-sm leading-7 text-slate-200">{q.question}</p>
-                        </div>
-                        {q.answer && (
-                          <div className="ml-8 rounded-2xl bg-slate-950 p-4 text-white">
-                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                              <Mic className="h-3.5 w-3.5" />
-                              You
-                            </div>
-                            <p className="mt-3 text-sm leading-7 text-white/90">{q.answer}</p>
-                          </div>
-                        )}
                       </div>
-                    );
-                  })}
-
-                  {phase !== "completed" && currentQ && (
-                    <div className="space-y-3">
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
-                          <Bot className="h-3.5 w-3.5" />
-                          Interviewer
-                        </div>
-                          <p className="mt-3 text-sm leading-7 text-slate-200">{currentQ.question}</p>
-                      </div>
-                      {(phase === "listening" || phase === "processing") && (
-                        <div className="ml-8 rounded-2xl bg-slate-950 p-4 text-white">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-                            <Mic className="h-3.5 w-3.5" />
-                            You
-                          </div>
-                          <p className="mt-3 text-sm leading-7 text-white/90">
-                            {transcript || liveTranscript || "Listening..."}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   )}
+              </div>
+              
+              <div className="chat-panel" style={{ marginTop: '1rem', minHeight: '150px' }}>
+                <div className="chat-bubble interviewer">
+                  <strong>Current Prompt:</strong><br/>{currentQ.question}
+                </div>
+                { (phase === "listening" || phase === "processing") && (
+                  <div className="chat-bubble candidate">
+                    <strong>Live Transcript:</strong><br/>
+                    {transcript || liveTranscript || "Start speaking and your answer will appear here."}
+                  </div>
+                )}
+                { phase === "processing" && (
+                  <div className="chat-bubble interviewer" style={{ opacity: 0.7 }}>
+                    Evaluating response...
+                  </div>
+                )}
+                <div ref={msgEnd} />
+              </div>
 
-                  <div ref={msgEnd} />
+            </div>
+
+            <aside className="interview-side">
+              <div className="side-card" style={{ padding: '0', overflow: 'hidden' }}>
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-300 p-4 border-b border-white/10">
+                  <Video className="h-4 w-4" />
+                  Camera preview
+                </div>
+                <div className="bg-slate-950 relative aspect-video">
+                  {camStream ? (
+                    <>
+                      <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+                      <button
+                        onClick={toggleCam}
+                        className="absolute right-3 top-3 rounded-full bg-black/50 p-2 text-white transition hover:bg-black/70"
+                      >
+                        <CameraOff className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={toggleCam}
+                      className="flex h-full w-full flex-col items-center justify-center gap-3 bg-white/5 text-white transition hover:bg-white/10"
+                    >
+                      <Camera className="h-6 w-6 text-sky-300" />
+                      <span className="text-sm font-medium">Enable camera</span>
+                    </button>
+                  )}
                 </div>
               </div>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </main>
-  );
-}
 
-function ArrowIcon() {
-  return <ChevronRight className="h-4 w-4" />;
+              <div className="side-card">
+                <p className="simple-panel-label">Live scoring</p>
+                <div className="score-list">
+                  <div><span>Communication</span><strong>{currentQuestionIndex > 0 ? questions[currentQuestionIndex-1]?.evaluation?.communication_score || "--" : "--"}</strong></div>
+                  <div><span>Technical</span><strong>{currentQuestionIndex > 0 ? questions[currentQuestionIndex-1]?.evaluation?.technical_score || "--" : "--"}</strong></div>
+                  <div><span>Confidence</span><strong>{currentQuestionIndex > 0 ? questions[currentQuestionIndex-1]?.evaluation?.confidence_score || "--" : "--"}</strong></div>
+                </div>
+              </div>
+            </aside>
+          </section>
+        </main>
+      </div>
+    </>
+  );
 }

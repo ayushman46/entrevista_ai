@@ -4,7 +4,7 @@ const faqs = [
     a: "It extracts the key projects, skills, and experience signals to generate context-aware questions.",
   },
   {
-    q: "Can candidates practice a specific role?",
+    q: "Can candidates interview for a specific role?",
     a: "Yes. The candidate enters a target role before starting, and the flow adapts accordingly.",
   },
   {
