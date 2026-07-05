@@ -5,10 +5,10 @@ export function BrandMark() {
         V
       </div>
       <div className="leading-tight">
-        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.32em] text-slate-400">
+        <p className="text-lg font-bold text-white">VitaHire</p>
+        <p className="text-[0.8rem] text-slate-400">
           AI interview platform
         </p>
-        <p className="text-lg font-semibold text-white">Entrevista</p>
       </div>
     </div>
   );

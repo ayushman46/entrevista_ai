@@ -16,22 +16,21 @@ export function HeroSection() {
         </h1>
 
         <p className="mt-8 max-w-[560px] text-xl leading-9 text-slate-300">
-          Entrevista uses the job description and candidate resume to generate relevant interview flows, evaluate depth of knowledge, and surface clear hiring insights in minutes.
+          VitaHire uses the job description and candidate resume to generate relevant interview flows, evaluate depth of knowledge, and surface clear hiring insights in minutes.
         </p>
 
         <div className="mt-10 flex flex-col gap-4 sm:flex-row">
           <Link
             href="/upload"
-            className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed,#22c55e)] px-8 py-4 text-lg font-semibold text-white shadow-[0_20px_60px_-20px_rgba(124,58,237,0.55)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_28px_80px_-25px_rgba(124,58,237,0.7)] active:scale-[0.98]"
+            className="inline-flex items-center justify-center rounded-full bg-[#7C3AED] px-8 py-4 text-lg font-semibold text-white shadow-[0_0_30px_-5px_rgba(124,58,237,0.4)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#8B5CF6] active:scale-[0.98]"
           >
             Start an interview
           </Link>
           <a
             href="#workflow"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-white/12 bg-white/5 px-8 py-4 text-lg font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-white/10 active:scale-[0.98]"
+            className="inline-flex items-center justify-center rounded-full border border-white/12 bg-[#1A1D2E] px-8 py-4 text-lg font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-white/10 active:scale-[0.98]"
           >
             See how it works
-            <WandSparkles className="h-5 w-5" />
           </a>
         </div>
 

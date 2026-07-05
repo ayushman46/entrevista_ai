@@ -24,10 +24,10 @@ export function InterviewPreview() {
     <div id="results" className="rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(11,15,28,0.98),rgba(17,23,42,0.92))] p-8 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.95)] lg:p-8">
       <div className="flex items-center justify-between gap-3">
         <span className="rounded-full bg-violet-500/18 px-5 py-2.5 text-base font-semibold text-violet-200">
-          Live Interview Preview
+          Live interview preview
         </span>
         <span className="rounded-full bg-emerald-400/15 px-5 py-2.5 text-base font-semibold text-emerald-300">
-          Adaptive Mode
+          Adaptive mode
         </span>
       </div>
 
@@ -51,15 +51,15 @@ export function InterviewPreview() {
           );
         })}
 
-        <div className="grid gap-4 sm:grid-cols-[0.82fr_1.18fr]">
-          <div className="rounded-[1.8rem] bg-white/5 p-6">
+        <div className="grid gap-4 sm:grid-cols-[0.82fr_1.18fr] rounded-[1.8rem] bg-white/5 p-6">
+          <div>
             <p className="text-sm uppercase tracking-[0.32em] text-slate-400">AI insight</p>
             <p className="mt-4 text-[2.1rem] font-semibold leading-[0.98] text-white">
               Strong systems thinking
             </p>
           </div>
-          <div className="rounded-[1.8rem] bg-white/5 p-6">
-            <p className="max-w-[420px] text-xl leading-8 text-slate-300">
+          <div className="flex items-center">
+            <p className="text-[1.1rem] leading-7 text-slate-300">
               Candidate shows practical tradeoff awareness, scaling intuition, and strong ownership language.
             </p>
           </div>
