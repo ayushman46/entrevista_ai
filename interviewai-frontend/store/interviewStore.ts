@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
-  ResumeData, InterviewQuestion, FinalReport, InterviewStatus, RoleType
+  ResumeData, InterviewQuestion, FinalReport, InterviewStatus, RoleType, EvaluationResult
 } from "@/types/interview";
 
 interface InterviewStore {
