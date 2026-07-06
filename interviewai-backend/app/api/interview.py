@@ -32,7 +32,7 @@ async def start_interview_session(request: InterviewStartRequest):
     role_plan = await _get_role_plan(interview_plan, request.role.value, resume_data)
 
     # Create session
-    session = session_manager.create_session(
+    session = await session_manager.create_session(
         resume_id=request.resume_id,
         candidate_name=request.candidate_name or resume_data.get("name", "Candidate"),
         role=request.role.value,
@@ -66,7 +66,7 @@ async def submit_answer(request: AnswerSubmitRequest):
     if len(request.answer_text) > 2000:
         raise HTTPException(400, "Answer text is too long (maximum 2000 characters)")
     
-    session = session_manager.get_session(request.interview_id)
+    session = await session_manager.get_session(request.interview_id)
     if not session:
         raise HTTPException(404, "Interview session not found")
     if session["status"] == "completed":
@@ -103,7 +103,7 @@ async def submit_answer(request: AnswerSubmitRequest):
         feedback=evaluation.get("feedback", ""),
     )
 
-    updated_session = session_manager.get_session(request.interview_id)
+    updated_session = await session_manager.get_session(request.interview_id)
     if not updated_session:
         raise HTTPException(404, "Interview session not found after evaluation")
 
@@ -121,7 +121,7 @@ async def submit_answer_audio(
     question_index: int = Form(...),
     audio_file: UploadFile = File(...)
 ):
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise HTTPException(404, "Interview session not found")
     if session["status"] == "completed":
@@ -177,7 +177,7 @@ async def submit_answer_audio(
         feedback=evaluation.get("feedback", ""),
     )
 
-    updated_session = session_manager.get_session(interview_id)
+    updated_session = await session_manager.get_session(interview_id)
     if not updated_session:
         raise HTTPException(404, "Interview session not found after evaluation")
 
@@ -199,7 +199,7 @@ async def submit_answer_audio(
 
 @router.get("/{interview_id}")
 async def get_interview(interview_id: str):
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise HTTPException(404, "Interview not found")
     return session
@@ -208,22 +208,24 @@ async def get_interview(interview_id: str):
 @router.post("/complete/{interview_id}")
 async def complete_interview(interview_id: str):
     """Trigger final evaluation and generate report."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise HTTPException(404, "Interview not found")
 
     final_eval = await generate_final_evaluation(interview_id)
 
     # Re-fetch closed session
-    closed_session = session_manager.get_session(interview_id)
+    closed_session = await session_manager.get_session(interview_id)
     if not closed_session:
         raise HTTPException(404, "Interview not found during closing")
 
-    # Generate PDF
-    pdf_filename = generate_pdf_report(
-        interview_id=interview_id,
-        report_data=final_eval,
-        session=closed_session,
+    import asyncio
+    # Generate PDF in a separate thread because ReportLab is highly CPU-bound
+    pdf_filename = await asyncio.to_thread(
+        generate_pdf_report,
+        interview_id,
+        final_eval,
+        closed_session,
     )
 
     final_eval["pdf_url"] = f"/reports/{pdf_filename}"
@@ -235,14 +237,14 @@ async def complete_interview(interview_id: str):
 @router.post("/resume/{interview_id}")
 async def resume_interview(interview_id: str):
     """Resume a paused/interrupted interview session."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise HTTPException(404, "Interview not found")
     if session["status"] == "completed":
         raise HTTPException(400, "Cannot resume a completed interview")
 
-    session_manager.update_session(interview_id, {"status": "active"})
-    updated_session = session_manager.get_session(interview_id)
+    await session_manager.update_session(interview_id, {"status": "active"})
+    updated_session = await session_manager.get_session(interview_id)
     if not updated_session:
         raise HTTPException(404, "Interview not found after resuming")
 

@@ -10,9 +10,24 @@ os.makedirs(settings.SESSION_DIR, exist_ok=True)
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(settings.SESSION_DIR, 'sessions.db')}"
 
 # Create engine (check_same_thread=False is needed for FastAPI with SQLite)
+# Enable WAL mode for better concurrency and non-blocking reads/writes
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, 
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 15
+    },
+    pool_size=10, 
+    max_overflow=20
 )
+
+from sqlalchemy import event
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
 
 # Session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

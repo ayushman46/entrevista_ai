@@ -7,7 +7,7 @@ router = APIRouter()
 
 @router.get("/{interview_id}/analytics")
 async def get_analytics(interview_id: str):
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise HTTPException(404, "Interview not found")
 

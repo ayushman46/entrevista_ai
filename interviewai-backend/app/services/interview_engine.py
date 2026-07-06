@@ -25,12 +25,12 @@ async def start_interview(
     """Generate the first question and initialize interview."""
     resume_summary = resume_data.get("summary", "")
 
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise ValueError(f"Session {interview_id} not found")
 
     # Update session with resume summary
-    session_manager.update_session(interview_id, {
+    await session_manager.update_session(interview_id, {
         "interview_context": {
             **session["interview_context"],
             "resume_summary": resume_summary,
@@ -51,7 +51,7 @@ async def start_interview(
     question_data = json.loads(clean)
     
     # Store the greeting in the session
-    session_manager.add_question(
+    await session_manager.add_question(
         interview_id=interview_id,
         question=question_data.get("question", ""),
         topic="Introduction"
@@ -69,7 +69,7 @@ async def evaluate_answer(
     role: str,
 ) -> tuple[dict, bool]:
     """Evaluate a candidate's answer and generate next question."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise ValueError(f"Session {interview_id} not found")
 
@@ -94,14 +94,14 @@ async def evaluate_answer(
         }
         
         # Record the social answer
-        session_manager.add_question_answer(
+        await session_manager.add_question_answer(
             interview_id=interview_id,
             answer=answer,
             evaluation=evaluation
         )
         
         # Add the first technical question to the session
-        session_manager.add_pending_question(
+        await session_manager.add_pending_question(
             interview_id=interview_id,
             question=first_q_data.get("question", ""),
             topic=first_q_data.get("topic", "Technical")
@@ -129,14 +129,14 @@ async def evaluate_answer(
     evaluation = json.loads(clean)
 
     # Record the answer
-    session_manager.add_question_answer(
+    await session_manager.add_question_answer(
         interview_id=interview_id,
         answer=answer,
         evaluation=evaluation
     )
 
     # Check if follow-up or new topic
-    updated_session = session_manager.get_session(interview_id)
+    updated_session = await session_manager.get_session(interview_id)
     if not updated_session:
         raise ValueError(f"Session {interview_id} not found")
 
@@ -164,7 +164,7 @@ async def evaluate_answer(
 
     ctx["consecutive_unanswered"] = consecutive_unanswered
     ctx["total_unanswered"] = total_unanswered
-    session_manager.update_session(interview_id, {"interview_context": ctx})
+    await session_manager.update_session(interview_id, {"interview_context": ctx})
 
     early_stop = (consecutive_unanswered >= 2) or (total_unanswered >= 3)
     question_count = len(updated_session["questions"])
@@ -183,7 +183,7 @@ async def evaluate_answer(
             evaluation["next_expected_concepts"] = []
 
         # Always pre-register the next question (follow-up OR new topic)
-        session_manager.add_pending_question(
+        await session_manager.add_pending_question(
             interview_id=interview_id,
             question=evaluation["next_question"],
             topic=evaluation.get("next_topic", topic)
@@ -194,7 +194,7 @@ async def evaluate_answer(
 
 async def _get_first_technical_question(interview_id: str, role: str, social_response: str) -> dict:
     """Generate the actual first technical question."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     ctx = session["interview_context"]
     plan = session.get("interview_plan", {})
     
@@ -219,7 +219,7 @@ async def _get_first_technical_question(interview_id: str, role: str, social_res
 
 async def get_next_question(interview_id: str, role: str) -> dict:
     """Generate the next adaptive question based on current interview context."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise ValueError(f"Session {interview_id} not found")
 

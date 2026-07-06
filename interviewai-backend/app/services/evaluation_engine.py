@@ -13,7 +13,7 @@ Always respond with valid JSON only."""
 
 async def generate_final_evaluation(interview_id: str) -> dict:
     """Generate the complete final evaluation report data."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         raise ValueError(f"Session {interview_id} not found")
 
@@ -52,6 +52,6 @@ async def generate_final_evaluation(interview_id: str) -> dict:
     final_eval = json.loads(clean)
 
     # Close the session
-    session_manager.close_session(interview_id)
+    await session_manager.close_session(interview_id)
 
     return final_eval

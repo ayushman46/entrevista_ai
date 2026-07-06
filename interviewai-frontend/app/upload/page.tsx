@@ -68,7 +68,7 @@ export default function UploadPage() {
     setStep("starting");
     setError(null);
     try {
-      const res = await api.startInterview(resumeId, role, candidateName);
+      const res = await api.startInterview(resumeId, role, candidateName || "Candidate");
       startInterview(res.interview_id, res.first_question, res.topic, res.total_planned_questions, res.audio_url);
       router.push(`/interview/${res.interview_id}`);
     } catch (e: any) {
@@ -78,259 +78,266 @@ export default function UploadPage() {
   };
 
   return (
-    <main className="min-h-screen text-white">
-      <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-6 lg:px-8">
-        <header className="glass-panel flex items-center justify-between rounded-[2rem] px-5 py-4">
-          <BrandMark />
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-300 transition hover:text-white">
+    <main className="min-h-screen bg-black text-white selection:bg-violet-500/30">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col p-6">
+        
+        {/* Navigation Bar */}
+        <header className="flex h-16 items-center justify-between">
+          <div className="flex items-center gap-3">
+            <BrandMark />
+            <span className="text-lg font-semibold tracking-tight text-white">VitaHire</span>
+          </div>
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-zinc-400 transition hover:text-white">
             <ArrowLeft className="h-4 w-4" />
-            Back home
+            Exit setup
           </Link>
         </header>
 
-        <div className="mt-8 grid flex-1 gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <aside className="rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(14,18,34,0.96),rgba(8,10,22,0.98))] p-8 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.9)] lg:p-10">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200">
-              <MicVocal className="h-4 w-4 text-violet-300" />
-              Candidate setup
+        <div className="mt-12 flex flex-1 flex-col lg:flex-row gap-12 lg:gap-24 items-start">
+          
+          {/* Left Panel Context */}
+          <aside className="hidden lg:flex w-[400px] flex-col gap-8 shrink-0 sticky top-24">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300">
+              <MicVocal className="h-3.5 w-3.5" />
+              Interview Configuration
             </div>
 
-            <h1 className="mt-8 max-w-md text-4xl font-semibold tracking-tight sm:text-5xl">
-              Add the candidate context, then launch a tailored interview.
-            </h1>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight text-white leading-[1.1]">
+                Tailor the interview <br/> to the candidate.
+              </h1>
+              <p className="mt-4 text-base leading-relaxed text-zinc-400">
+                Provide a resume and the desired role. Our AI agent parses the background to build a completely unique, highly relevant interview flow.
+              </p>
+            </div>
 
-            <p className="mt-5 max-w-lg text-base leading-8 text-slate-300">
-              Upload a resume, enter the candidate name, choose the role, and start a production-grade interview flow.
-            </p>
-
-            <div className="mt-10 space-y-4">
+            <div className="mt-4 flex flex-col gap-4">
               {[
-                "Resume is parsed into interview topics",
-                "Candidate name personalizes the session",
-                "Target role shapes the questions",
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                  <span className="text-sm text-slate-200">{item}</span>
+                "Resume context sets the technical bar",
+                "Role selection guides the grading rubric",
+                "Personalized intro for a human touch",
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-center gap-3 text-zinc-300">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-sm font-medium">{item}</span>
                 </div>
               ))}
             </div>
           </aside>
 
-          <section className="flex items-center justify-center">
-            <div className="w-full max-w-2xl rounded-[2.25rem] border border-white/10 bg-[linear-gradient(180deg,rgba(10,14,28,0.96),rgba(14,18,34,0.88))] p-6 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.9)] sm:p-8">
-              <div className="flex items-center gap-3">
-                {["Resume", "Profile", "Launch"].map((label, index) => {
-                  const active =
-                    (step === "upload" && index === 0) ||
-                    (step === "config" && index === 1) ||
-                    (step === "starting" && index === 2);
-                  return (
-                    <div key={label} className="flex flex-1 items-center gap-3">
-                      <div
-                        className={[
-                          "flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition",
-                          active ? "bg-white text-slate-950" : "bg-white/10 text-slate-400",
-                        ].join(" ")}
-                      >
-                        {index + 1}
-                      </div>
-                      <span className={active ? "text-sm font-semibold text-white" : "text-sm text-slate-400"}>
-                        {label}
-                      </span>
-                      {index < 2 ? <span className="hidden h-px flex-1 bg-white/10 sm:block" /> : null}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-8">
-                {step === "upload" && (
-                  <div className="space-y-7">
-                    <div>
-                      <h2 className="text-3xl font-semibold tracking-tight">Upload your resume</h2>
-                      <p className="mt-2 max-w-xl text-sm leading-7 text-slate-400">
-                        The file powers the interview topics and keeps the questions relevant to the candidate.
-                      </p>
-                    </div>
-
+          {/* Right Panel Main Form */}
+          <section className="flex-1 w-full max-w-[600px] lg:mt-6">
+            
+            {/* Step Indicator */}
+            <div className="mb-10 flex items-center gap-2">
+              {["Resume", "Profile", "Launch"].map((label, index) => {
+                const active =
+                  (step === "upload" && index === 0) ||
+                  (step === "config" && index === 1) ||
+                  (step === "starting" && index === 2);
+                const past = 
+                  (step === "config" && index < 1) || 
+                  (step === "starting" && index < 2);
+                
+                return (
+                  <div key={label} className="flex items-center gap-2">
                     <div
-                      className={[
-                        "rounded-[1.75rem] border-2 border-dashed p-8 text-center transition",
-                        drag
-                          ? "border-violet-400 bg-white/5"
-                          : file
-                            ? "border-white/20 bg-white/5"
-                            : "border-white/12 bg-white/3 hover:border-white/20 hover:bg-white/5",
-                      ].join(" ")}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setDrag(true);
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold transition-all duration-300 ${
+                        active ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.3)]" : 
+                        past ? "bg-zinc-800 text-white" : "bg-zinc-900 text-zinc-600 border border-zinc-800"
+                      }`}
+                    >
+                      {index + 1}
+                    </div>
+                    <span className={`text-sm font-medium ${active ? "text-white" : "text-zinc-500"}`}>
+                      {label}
+                    </span>
+                    {index < 2 && <div className="h-px w-8 sm:w-16 mx-2 bg-zinc-800" />}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Form Content */}
+            <div className="glass-card rounded-[24px] p-8 sm:p-10 shadow-2xl">
+              
+              {step === "upload" && (
+                <div className="animate-fade-in flex flex-col gap-6">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight text-white">Upload resume</h2>
+                    <p className="mt-1.5 text-sm text-zinc-400">PDF, DOCX, or DOC formats supported.</p>
+                  </div>
+
+                  <div
+                    className={`group relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-10 text-center transition-all duration-300 ${
+                      drag
+                        ? "border-violet-500 bg-violet-500/5"
+                        : file
+                          ? "border-emerald-500/50 bg-emerald-500/5"
+                          : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-800/50"
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+                    onDragLeave={() => setDrag(false)}
+                    onDrop={handleDrop}
+                    onClick={() => document.getElementById("file-input")?.click()}
+                  >
+                    <input
+                      id="file-input"
+                      type="file"
+                      accept=".pdf,.docx,.doc"
+                      className="hidden"
+                      onChange={(e) => {
+                        const selected = e.target.files?.[0];
+                        if (selected) {
+                          setFile(selected);
+                          setError(null);
+                        }
                       }}
-                      onDragLeave={() => setDrag(false)}
-                      onDrop={handleDrop}
-                      onClick={() => document.getElementById("file-input")?.click()}
-                    >
-                      <input
-                        id="file-input"
-                        type="file"
-                        accept=".pdf,.docx,.doc"
-                        className="hidden"
-                        onChange={(e) => {
-                          const selected = e.target.files?.[0];
-                          if (selected) {
-                            setFile(selected);
-                            setError(null);
-                          }
-                        }}
-                      />
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#8b5cf6,#22c55e)] text-white shadow-lg shadow-violet-500/20">
-                        <FileUp className="h-7 w-7" />
-                      </div>
-
-                      <div className="mt-5">
-                        <p className="text-lg font-semibold text-white">
-                          {file ? file.name : "Click to upload or drag and drop"}
-                        </p>
-                        <p className="mt-2 text-sm text-slate-400">PDF or DOCX files are supported.</p>
-                        {file && (
-                          <p className="mt-3 text-xs font-medium uppercase tracking-[0.24em] text-slate-500">
-                            {(file.size / 1024).toFixed(0)} KB
-                          </p>
-                        )}
-                      </div>
+                    />
+                    
+                    <div className={`flex h-16 w-16 items-center justify-center rounded-2xl transition-colors ${file ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-800 text-zinc-400 group-hover:bg-zinc-700 group-hover:text-white'}`}>
+                      <FileUp className="h-7 w-7" />
                     </div>
 
-                    {error && (
-                      <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                        {error}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleUpload}
-                      disabled={!file || uploading}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-4 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {uploading ? (
-                        <>
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                          Processing resume
-                        </>
-                      ) : (
-                        <>
-                          Continue
-                          <ArrowRight className="h-4 w-4" />
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {step === "config" && (
-                  <div className="space-y-7">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h2 className="text-3xl font-semibold tracking-tight">Set up the candidate profile</h2>
-                        <p className="mt-2 max-w-xl text-sm leading-7 text-slate-400">
-                          Add a name and choose the role the AI should interview for.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setStep("upload")}
-                        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
-                      >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back
-                      </button>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div>
-                        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-300">
-                          <UserRound className="h-4 w-4 text-slate-500" />
-                          Candidate name
-                        </label>
-                        <input
-                          type="text"
-                          value={candidateName}
-                          onChange={(e) => setCandidateName(e.target.value)}
-                          placeholder="Jane Doe"
-                          className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm outline-none transition placeholder:text-slate-500 focus:border-violet-400/70 focus:ring-2 focus:ring-violet-400/20"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-300">
-                          <BriefcaseBusiness className="h-4 w-4 text-slate-500" />
-                          Target role
-                        </label>
-                        <div className="grid gap-3">
-                          {ROLES.map((item) => {
-                            const selected = role === item.value;
-                            return (
-                              <button
-                                key={item.value}
-                                type="button"
-                                onClick={() => setRole(item.value)}
-                                className={[
-                                  "w-full rounded-[1.35rem] border p-4 text-left transition",
-                                  selected
-                                    ? "border-white/25 bg-white/10 shadow-lg shadow-black/20"
-                                    : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10",
-                                ].join(" ")}
-                              >
-                                <div className="flex items-start justify-between gap-4">
-                                  <div>
-                                    <p className="text-base font-semibold text-white">{item.label}</p>
-                                    <p className="mt-1 text-sm text-slate-400">{item.desc}</p>
-                                  </div>
-                                  <div
-                                    className={[
-                                      "mt-1 h-5 w-5 rounded-full border-2",
-                                      selected ? "border-white bg-white" : "border-slate-500",
-                                    ].join(" ")}
-                                  />
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {error && (
-                      <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                        {error}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleStart}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed,#22c55e)] px-6 py-4 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-                    >
-                      Begin interview
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-
-                {step === "starting" && (
-                  <div className="flex flex-col items-center justify-center gap-5 py-20 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                      <LoaderCircle className="h-6 w-6 animate-spin text-white" />
-                    </div>
                     <div>
-                      <h2 className="text-xl font-semibold text-white">Preparing your interview</h2>
-                      <p className="mt-2 text-sm text-slate-400">We’re analyzing the resume and generating the first question.</p>
+                      <p className={`text-base font-medium ${file ? 'text-emerald-400' : 'text-white'}`}>
+                        {file ? file.name : "Click or drag file to upload"}
+                      </p>
+                      {file && (
+                        <p className="mt-1 text-xs font-medium text-zinc-500 uppercase tracking-widest">
+                          {(file.size / 1024).toFixed(0)} KB
+                        </p>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
+
+                  {error && (
+                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-medium text-rose-400">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleUpload}
+                    disabled={!file || uploading}
+                    className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-black transition-all hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        Continue to profile
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {step === "config" && (
+                <div className="animate-fade-in flex flex-col gap-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold tracking-tight text-white">Candidate Details</h2>
+                      <p className="mt-1.5 text-sm text-zinc-400">Who is taking the interview?</p>
+                    </div>
+                    <button onClick={() => setStep("upload")} className="text-zinc-400 hover:text-white transition-colors p-2 -mr-2">
+                      <ArrowLeft className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-6">
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                        <UserRound className="h-4 w-4 text-zinc-500" />
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        value={candidateName}
+                        onChange={(e) => setCandidateName(e.target.value)}
+                        placeholder="e.g. Alex Morgan"
+                        className="h-12 w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 text-sm text-white placeholder-zinc-500 outline-none transition-all focus:border-violet-500 focus:bg-zinc-900"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                        <BriefcaseBusiness className="h-4 w-4 text-zinc-500" />
+                        Target Role
+                      </label>
+                      <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        {ROLES.map((item) => {
+                          const selected = role === item.value;
+                          return (
+                            <button
+                              key={item.value}
+                              onClick={() => setRole(item.value)}
+                              className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-all ${
+                                selected
+                                  ? "border-violet-500 bg-violet-500/10 shadow-[0_0_20px_rgba(139,92,246,0.15)]"
+                                  : "border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900"
+                              }`}
+                            >
+                              <div className={`mt-1 h-4 w-4 shrink-0 rounded-full border-2 flex items-center justify-center ${selected ? "border-violet-400" : "border-zinc-600"}`}>
+                                {selected && <div className="h-2 w-2 rounded-full bg-violet-400" />}
+                              </div>
+                              <div>
+                                <p className={`text-sm font-semibold ${selected ? "text-violet-300" : "text-zinc-200"}`}>{item.label}</p>
+                                <p className="mt-0.5 text-xs text-zinc-500">{item.desc}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-medium text-rose-400">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={handleStart}
+                    className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 text-sm font-semibold text-white transition-all hover:bg-violet-500 hover:shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+                  >
+                    Launch Interview Environment
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {step === "starting" && (
+                <div className="animate-fade-in flex flex-col items-center justify-center py-16 text-center">
+                  <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900 shadow-xl">
+                    <div className="absolute inset-0 rounded-full border border-violet-500/30 animate-ping" />
+                    <LoaderCircle className="h-8 w-8 animate-spin text-violet-400" />
+                  </div>
+                  <h2 className="mt-8 text-xl font-semibold text-white">Initializing Session</h2>
+                  <p className="mt-2 text-sm text-zinc-400">Compiling resume context and connecting to voice engine...</p>
+                </div>
+              )}
             </div>
           </section>
         </div>
       </div>
+      
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: #3f3f46;
+          border-radius: 10px;
+        }
+      `}</style>
     </main>
   );
 }

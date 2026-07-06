@@ -7,31 +7,32 @@ import {
   ArrowLeft,
   Award,
   BarChart3,
-  BookOpenCheck,
   Download,
   Lightbulb,
   RefreshCcw,
   ShieldCheck,
   Sparkles,
   TriangleAlert,
+  Bot
 } from "lucide-react";
 import { useInterviewStore } from "@/store/interviewStore";
 import { api } from "@/services/api";
+import { BrandMark } from "@/components/brand-mark";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 function RecommendationBadge({ rec }: { rec: string }) {
   const normalized = (rec || "").toLowerCase();
   if (normalized.includes("strong")) {
-    return <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-300"><ShieldCheck className="h-4 w-4" />Strong hire</span>;
+    return <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-400"><ShieldCheck className="h-4 w-4" />Strong Hire</span>;
   }
   if (normalized.includes("hire")) {
-    return <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-sm font-semibold text-emerald-300"><Award className="h-4 w-4" />Hire</span>;
+    return <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-400"><Award className="h-4 w-4" />Hire</span>;
   }
   if (normalized.includes("maybe")) {
-    return <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-300"><Sparkles className="h-4 w-4" />Maybe</span>;
+    return <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-400"><Sparkles className="h-4 w-4" />Maybe</span>;
   }
-  return <span className="inline-flex items-center gap-2 rounded-full border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-sm font-semibold text-rose-300"><TriangleAlert className="h-4 w-4" />No hire</span>;
+  return <span className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-400"><TriangleAlert className="h-4 w-4" />No Hire</span>;
 }
 
 export default function ReportPage() {
@@ -68,10 +69,12 @@ export default function ReportPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-white">
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3 shadow-[0_20px_80px_-40px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-          <RefreshCcw className="h-5 w-5 animate-spin text-white" />
-          <span className="text-sm font-medium text-slate-300">Compiling your report</span>
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="flex flex-col items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-900 border border-white/5 shadow-2xl">
+            <RefreshCcw className="h-6 w-6 animate-spin text-zinc-400" />
+          </div>
+          <span className="text-sm font-medium text-zinc-400">Compiling analytics report...</span>
         </div>
       </div>
     );
@@ -79,14 +82,18 @@ export default function ReportPage() {
 
   if (error || !report) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-4 rounded-[2rem] border border-white/10 bg-white/5 p-8 text-center shadow-[0_40px_120px_-60px_rgba(0,0,0,0.95)] max-w-lg">
-          <TriangleAlert className="h-10 w-10 text-rose-400" />
-          <h2 className="text-2xl font-semibold tracking-tight">Could not load report</h2>
-          <p className="text-sm leading-7 text-slate-400">{error}</p>
-          <div className="mt-4 flex gap-3">
-            <button onClick={() => router.refresh()} className="button button-secondary">Try again</button>
-            <Link href="/upload" className="button button-primary">Start new session</Link>
+      <div className="flex min-h-screen items-center justify-center bg-black p-6">
+        <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-3xl border border-white/5 bg-zinc-900/50 p-8 text-center shadow-2xl backdrop-blur-xl">
+          <TriangleAlert className="h-10 w-10 text-rose-500" />
+          <h2 className="text-2xl font-bold tracking-tight text-white">Report Unavailable</h2>
+          <p className="text-sm leading-relaxed text-zinc-400">{error}</p>
+          <div className="mt-4 flex w-full flex-col gap-3">
+            <button onClick={() => router.refresh()} className="w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-zinc-200">
+              Try Again
+            </button>
+            <Link href="/upload" className="w-full rounded-xl border border-white/10 bg-transparent px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/5">
+              Start New Session
+            </Link>
           </div>
         </div>
       </div>
@@ -94,118 +101,173 @@ export default function ReportPage() {
   }
 
   return (
-    <>
-      <div className="page-shell">
-        <div className="ambient ambient-one"></div>
-        <div className="ambient ambient-two"></div>
+    <div className="min-h-screen bg-black text-white selection:bg-violet-500/30">
+      {/* Topbar */}
+      <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-white/5 bg-black/50 px-6 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <BrandMark />
+          <div className="h-4 w-px bg-white/10" />
+          <span className="text-sm font-medium text-zinc-400">Diagnostic Report</span>
+        </div>
+        <div className="flex items-center gap-3">
+          {report.pdf_url && (
+            <a
+              href={pdfLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm font-semibold transition hover:bg-white/10"
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </a>
+          )}
+          <Link
+            href="/upload"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-sm font-semibold text-black transition hover:bg-zinc-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            New Session
+          </Link>
+        </div>
+      </header>
 
-        <header className="topbar">
-          <div className="brand">
-            <div className="brand-mark">V</div>
-            <div>
-              <p className="brand-name">VitaHire</p>
-              <p className="brand-tag">Interview results</p>
+      <main className="mx-auto max-w-5xl px-6 py-12 lg:py-20">
+        {/* Header Section */}
+        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-violet-300">
+              <BarChart3 className="h-3.5 w-3.5" /> Interview Results
             </div>
+            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+              {report.candidate_name || "Candidate"}
+            </h1>
+            <p className="mt-2 text-lg text-zinc-400 capitalize">
+              Target Role: {(report.role || "").replace(/_/g, " ")}
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            {report.pdf_url && (
-              <a href={pdfLink} target="_blank" rel="noopener noreferrer" className="button button-secondary text-sm">
-                <Download className="h-4 w-4 mr-2" /> Download PDF
-              </a>
-            )}
-            <Link href="/upload" className="button button-primary text-sm">
-              <ArrowLeft className="h-4 w-4 mr-2" /> New session
-            </Link>
+          <div className="flex shrink-0">
+            <RecommendationBadge rec={report.hiring_recommendation} />
           </div>
-        </header>
+        </div>
 
-        <main className="page-main">
-          <section className="section form-layout" style={{ marginTop: '3rem' }}>
-            <div className="form-copy">
-              <span className="eyebrow">Diagnostic summary</span>
-              <h1>{report.candidate_name || "Candidate"}’s results are ready.</h1>
-              <p style={{ marginTop: '1.5rem', fontSize: '1.1rem' }}>
-                Target role: <span className="capitalize text-white">{(report.role || "").replace(/_/g, " ")}</span>
-              </p>
-              <div className="flex gap-3" style={{ marginTop: '1.5rem' }}>
-                <RecommendationBadge rec={report.hiring_recommendation} />
+        {/* Top Stats Grid */}
+        <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { label: "Overall Score", value: report.overall_score },
+            { label: "Confidence", value: report.confidence_score },
+            { label: "Technical Depth", value: report.technical_score },
+            { label: "Communication", value: report.communication_score },
+          ].map((stat, idx) => (
+            <div key={idx} className="flex flex-col justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-6 shadow-lg">
+              <span className="text-sm font-medium text-zinc-400">{stat.label}</span>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="text-3xl font-bold tracking-tight text-white">{stat.value?.toFixed(1) || "-"}</span>
+                <span className="text-sm font-medium text-zinc-500">/ 10</span>
               </div>
             </div>
+          ))}
+        </div>
 
-            <div className="simple-panel">
-              <p className="simple-panel-label">Live report preview</p>
-              <h2 style={{ marginTop: '0.5rem', marginBottom: '1rem', fontSize: '1.2rem', fontWeight: 600 }}>Candidate context</h2>
-              
-              <div className="score-list">
-                <div><span>Interview ID</span><strong style={{ fontSize: '0.75rem', opacity: 0.7, wordBreak: 'break-all', maxWidth: '60%', textAlign: 'right' }}>{report.interview_id}</strong></div>
-                <div><span>Overall Score</span><strong>{report.overall_score?.toFixed(1)} <span style={{opacity:0.5}}>/ 10</span></strong></div>
-                <div><span>Confidence</span><strong>{report.confidence_score?.toFixed(1)} <span style={{opacity:0.5}}>/ 10</span></strong></div>
-                <div><span>Technical Depth</span><strong>{report.technical_score?.toFixed(1)} <span style={{opacity:0.5}}>/ 10</span></strong></div>
-                <div><span>Communication</span><strong>{report.communication_score?.toFixed(1)} <span style={{opacity:0.5}}>/ 10</span></strong></div>
-              </div>
-            </div>
-          </section>
+        {/* Executive Summary */}
+        <div className="mt-4 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-transparent p-6 sm:p-8">
+          <div className="flex items-center gap-3 text-violet-300 mb-4">
+            <Sparkles className="h-5 w-5" />
+            <h2 className="text-lg font-semibold">Executive Summary</h2>
+          </div>
+          <p className="text-base leading-relaxed text-zinc-300">
+            {report.summary || "No summary provided."}
+          </p>
+        </div>
 
-          <section className="section compact-grid" style={{ marginTop: '2.5rem' }}>
-            <div className="mini-card" style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.1), rgba(16,185,129,0.02))', borderColor: 'rgba(16,185,129,0.2)' }}>
-              <span className="flex items-center gap-2 text-emerald-300"><ShieldCheck className="h-4 w-4" /> STRENGTHS</span>
-              <ul className="space-y-3 mt-4">
-                {report.strengths?.map((item: string, i: number) => (
-                  <li key={i} className="text-sm opacity-90 leading-relaxed border-b border-emerald-500/10 pb-2 last:border-0">{item}</li>
-                ))}
-              </ul>
+        {/* Strengths and Weaknesses Grid */}
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 sm:p-8">
+            <div className="flex items-center gap-3 text-emerald-400 mb-6">
+              <ShieldCheck className="h-5 w-5" />
+              <h2 className="text-lg font-semibold">Key Strengths</h2>
             </div>
-            
-            <div className="mini-card" style={{ background: 'linear-gradient(180deg, rgba(245,158,11,0.1), rgba(245,158,11,0.02))', borderColor: 'rgba(245,158,11,0.2)' }}>
-              <span className="flex items-center gap-2 text-amber-300"><Lightbulb className="h-4 w-4" /> AREAS TO IMPROVE</span>
-              <ul className="space-y-3 mt-4">
-                {report.weaknesses?.map((item: string, i: number) => (
-                  <li key={i} className="text-sm opacity-90 leading-relaxed border-b border-amber-500/10 pb-2 last:border-0">{item}</li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="mini-card">
-              <span className="flex items-center gap-2 text-violet-300"><Sparkles className="h-4 w-4" /> EXECUTIVE SUMMARY</span>
-              <p className="text-sm opacity-90 leading-relaxed italic mt-4">"{report.summary}"</p>
-            </div>
-          </section>
+            <ul className="space-y-4">
+              {report.strengths?.map((item: string, i: number) => (
+                <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-zinc-300">
+                  <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                  {item}
+                </li>
+              ))}
+              {(!report.strengths || report.strengths.length === 0) && (
+                <li className="text-sm text-zinc-500 italic">No specific strengths recorded.</li>
+              )}
+            </ul>
+          </div>
 
-          {report.questions?.length > 0 && (
-            <section className="section" style={{ paddingBottom: '3rem' }}>
-              <span className="eyebrow" style={{ marginBottom: '1.5rem' }}>Question breakdown</span>
-              <div className="flex flex-col gap-5 mt-2">
-                {report.questions.map((q: any, index: number) => (
-                  <div key={index} className="simple-panel flex flex-col md:flex-row gap-6 items-start">
-                    <div className="flex-1 w-full">
-                      <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-lg font-semibold pr-4">{index + 1}. {q.question}</h3>
-                        <div className="px-3 py-1 rounded-full border border-white/10 bg-white/5 text-sm font-semibold whitespace-nowrap">
-                          Score: {q.score}/10
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-col gap-3 mt-4">
-                        <div className="chat-bubble candidate" style={{ maxWidth: '100%', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', alignSelf: 'stretch' }}>
-                          <strong className="text-[0.7rem] uppercase tracking-wider opacity-50 mb-1 block">Candidate Answer</strong>
-                          <span className="italic text-sm leading-relaxed text-slate-300">“{q.candidate_answer || q.answer || "No response recorded"}”</span>
-                        </div>
-                        
-                        {q.best_answer && (
-                          <div className="chat-bubble interviewer" style={{ maxWidth: '100%', borderRadius: '14px', alignSelf: 'stretch' }}>
-                            <strong className="text-[0.7rem] uppercase tracking-wider text-violet-300 opacity-80 mb-1 block">Ideal Answer</strong>
-                            <span className="text-sm leading-relaxed">{q.best_answer}</span>
-                          </div>
-                        )}
-                      </div>
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 sm:p-8">
+            <div className="flex items-center gap-3 text-amber-400 mb-6">
+              <Lightbulb className="h-5 w-5" />
+              <h2 className="text-lg font-semibold">Areas for Improvement</h2>
+            </div>
+            <ul className="space-y-4">
+              {report.weaknesses?.map((item: string, i: number) => (
+                <li key={i} className="flex items-start gap-3 text-sm leading-relaxed text-zinc-300">
+                  <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                  {item}
+                </li>
+              ))}
+              {(!report.weaknesses || report.weaknesses.length === 0) && (
+                <li className="text-sm text-zinc-500 italic">No specific areas for improvement recorded.</li>
+              )}
+            </ul>
+          </div>
+        </div>
+
+        {/* Detailed Breakdown */}
+        {report.questions?.length > 0 && (
+          <div className="mt-16">
+            <h2 className="text-2xl font-bold tracking-tight text-white mb-8">Detailed Q&A Breakdown</h2>
+            <div className="space-y-6">
+              {report.questions.map((q: any, index: number) => (
+                <div key={index} className="rounded-3xl border border-white/5 bg-zinc-900/40 p-6 sm:p-8 transition-colors hover:bg-zinc-900/60">
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+                    <h3 className="text-lg font-medium leading-relaxed text-white">
+                      <span className="text-zinc-500 mr-2">{index + 1}.</span>
+                      {q.question}
+                    </h3>
+                    <div className="inline-flex h-fit shrink-0 items-center justify-center rounded-full border border-white/10 bg-black px-3 py-1 text-sm font-semibold text-white shadow-sm">
+                      Score: {q.score}/10
                     </div>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </main>
-      </div>
-    </>
+
+                  <div className="space-y-4">
+                    {/* Candidate Answer */}
+                    <div className="rounded-2xl bg-zinc-950 p-5 border border-white/5">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        <div className="h-2 w-2 rounded-full bg-zinc-600" />
+                        Candidate Response
+                      </div>
+                      <p className="text-sm leading-relaxed text-zinc-300 italic">
+                        "{q.candidate_answer || q.answer || "No response recorded"}"
+                      </p>
+                    </div>
+
+                    {/* Ideal Answer */}
+                    {q.best_answer && (
+                      <div className="rounded-2xl bg-violet-500/5 p-5 border border-violet-500/10">
+                        <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-400">
+                          <Bot className="h-3.5 w-3.5" />
+                          Ideal Answer
+                        </div>
+                        <p className="text-sm leading-relaxed text-zinc-300">
+                          {q.best_answer}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

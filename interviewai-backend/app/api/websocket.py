@@ -19,7 +19,7 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
     await websocket.accept()
     logger.info(f"WebSocket connected for interview {interview_id}")
     
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session:
         await websocket.send_json({"type": "error", "code": "session_not_found"})
         await websocket.close(code=4004)
@@ -39,9 +39,38 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
     os.close(fd)
 
     audio_buffer = bytearray()
-    is_processing = False
-    total_audio_received = 0
+    
+    # State tracking
+    state = {
+        "is_processing": False,
+        "total_audio_received": 0,
+        "temp_filepath": temp_filepath,
+        "audio_buffer": audio_buffer
+    }
+    
     MAX_SESSION_AUDIO_BYTES = 100 * 1024 * 1024 # 100 MB limit per session
+    send_lock = asyncio.Lock()
+
+    async def safe_send_json(data):
+        async with send_lock:
+            try:
+                await websocket.send_json(data)
+            except Exception as e:
+                logger.error(f"Error sending data to websocket: {e}")
+
+    async def _process_task(filepath_to_process, live_transcript):
+        try:
+            await process_audio_turn(websocket, interview_id, filepath_to_process, live_transcript, safe_send_json)
+        except Exception as e:
+            logger.error(f"Background task processing error: {e}", exc_info=True)
+            await safe_send_json({"type": "error", "message": "An error occurred while processing your answer."})
+        finally:
+            if os.path.exists(filepath_to_process):
+                try:
+                    os.remove(filepath_to_process)
+                except Exception as rm_err:
+                    logger.error(f"Error removing temp file: {rm_err}")
+            state["is_processing"] = False
 
     try:
         while True:
@@ -55,55 +84,54 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
 
             if "bytes" in message:
                 chunk_size = len(message["bytes"])
-                total_audio_received += chunk_size
-                if total_audio_received > MAX_SESSION_AUDIO_BYTES:
+                state["total_audio_received"] += chunk_size
+                if state["total_audio_received"] > MAX_SESSION_AUDIO_BYTES:
                     logger.warning(f"Session {interview_id} exceeded max audio quota.")
                     await websocket.close(code=1008) # Policy violation
                     break
                 
-                audio_buffer.extend(message["bytes"])
-                logger.debug(f"Received audio chunk of {chunk_size} bytes. Total buffer size: {len(audio_buffer)}")
+                state["audio_buffer"].extend(message["bytes"])
                 
                 # Flush to temp file every 64KB
-                if len(audio_buffer) >= 64 * 1024:
-                    async with aiofiles.open(temp_filepath, 'ab') as f:
-                        await f.write(bytes(audio_buffer))
-                    audio_buffer = bytearray()
+                if len(state["audio_buffer"]) >= 64 * 1024:
+                    async with aiofiles.open(state["temp_filepath"], 'ab') as f:
+                        await f.write(bytes(state["audio_buffer"]))
+                    state["audio_buffer"] = bytearray()
             
             elif "text" in message:
                 data = json.loads(message["text"])
                 if data.get("type") == "ping":
-                    await websocket.send_json({"type": "pong"})
+                    await safe_send_json({"type": "pong"})
                 elif data.get("type") == "end_of_turn":
-                    logger.info(f"Received end_of_turn. Current buffer size: {len(audio_buffer)}")
+                    logger.info(f"Received end_of_turn. Current buffer size: {len(state['audio_buffer'])}")
                     
-                    fresh_session = session_manager.get_session(interview_id)
+                    fresh_session = await session_manager.get_session(interview_id)
                     if fresh_session and fresh_session.get("status") == "completed":
-                        await websocket.send_json({"type": "interview_complete"})
-                        audio_buffer = bytearray()
+                        await safe_send_json({"type": "interview_complete"})
+                        state["audio_buffer"] = bytearray()
                         continue
 
-                    if not is_processing:
-                        is_processing = True
-                        try:
-                            # Flush remaining buffer to temp file
-                            if len(audio_buffer) > 0:
-                                async with aiofiles.open(temp_filepath, 'ab') as f:
-                                    await f.write(bytes(audio_buffer))
-                                audio_buffer = bytearray()
-                            
-                            live_transcript = data.get("transcript", "")
-                            await process_audio_turn(websocket, interview_id, temp_filepath, live_transcript)
-                        finally:
-                            if os.path.exists(temp_filepath):
-                                try:
-                                    os.remove(temp_filepath)
-                                except Exception as rm_err:
-                                    logger.error(f"Error removing temp file: {rm_err}")
-                            fd, temp_filepath = tempfile.mkstemp(suffix=".webm", dir=audio_dir)
-                            os.close(fd)
-                            audio_buffer = bytearray()
-                            is_processing = False
+                    if not state["is_processing"]:
+                        state["is_processing"] = True
+                        
+                        # Flush remaining buffer to temp file
+                        if len(state["audio_buffer"]) > 0:
+                            async with aiofiles.open(state["temp_filepath"], 'ab') as f:
+                                await f.write(bytes(state["audio_buffer"]))
+                            state["audio_buffer"] = bytearray()
+                        
+                        file_to_process = state["temp_filepath"]
+                        
+                        # Create a new temp file for the next turn immediately
+                        fd, new_temp = tempfile.mkstemp(suffix=".webm", dir=audio_dir)
+                        os.close(fd)
+                        state["temp_filepath"] = new_temp
+                        
+                        live_transcript = data.get("transcript", "")
+                        
+                        # Process in background so the receive loop can continue (e.g. for pings)
+                        asyncio.create_task(_process_task(file_to_process, live_transcript))
+                        
                 elif message.get("type") == "websocket.disconnect":
                     logger.info("Received explicit disconnect message.")
                     break
@@ -118,16 +146,17 @@ async def interview_websocket(websocket: WebSocket, interview_id: str):
         except Exception:
             pass
     finally:
-        if os.path.exists(temp_filepath):
+        if os.path.exists(state["temp_filepath"]):
             try:
-                os.remove(temp_filepath)
+                os.remove(state["temp_filepath"])
             except Exception as rm_err:
                 logger.error(f"Error removing temp file on disconnect: {rm_err}")
 
-
-async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path: str, live_transcript: str = ""):
+async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path: str, live_transcript: str = "", safe_send_json=None):
+    if safe_send_json is None:
+        safe_send_json = websocket.send_json
     """Handles STT -> LLM -> TTS pipeline for a turn using the pre-flushed temp file."""
-    session = session_manager.get_session(interview_id)
+    session = await session_manager.get_session(interview_id)
     if not session or session["status"] == "completed":
         return
 
@@ -149,7 +178,7 @@ async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path:
 
         if not whisper_transcript and not live_transcript:
             logger.warning("Both Whisper and live transcriptions are empty.")
-            await websocket.send_json({
+            await safe_send_json({
                 "type": "error",
                 "code": "transcription_failed",
                 "message": "Could not transcribe audio. Please check your microphone and try again."
@@ -165,7 +194,7 @@ async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path:
 
         logger.info(f"Using transcript from source '{source}': '{answer_text}'")
 
-        await websocket.send_json({
+        await safe_send_json({
             "type": "transcript",
             "text": answer_text,
             "source": source
@@ -196,7 +225,7 @@ async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path:
             audio_url = f"/audio/{audio_filename}"
 
         # 4. Send response back to frontend
-        await websocket.send_json({
+        await safe_send_json({
             "type": "turn_complete",
             "evaluation": evaluation,
             "interview_complete": is_complete,
@@ -208,4 +237,4 @@ async def process_audio_turn(websocket: WebSocket, interview_id: str, temp_path:
 
     except Exception as e:
         logger.error(f"Error processing turn: {e}")
-        await websocket.send_json({"type": "error", "message": str(e)})
+        await safe_send_json({"type": "error", "message": str(e)})

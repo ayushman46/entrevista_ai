@@ -1,8 +1,8 @@
 from app.services.session_manager import session_manager
 
 
-def get_interview_analytics(interview_id: str) -> dict:
-    session = session_manager.get_session(interview_id)
+async def get_interview_analytics(interview_id: str) -> dict:
+    session = await session_manager.get_session(interview_id)
     if not session:
         return {}
 

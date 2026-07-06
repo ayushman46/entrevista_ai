@@ -1,7 +1,8 @@
 import json
 import os
 import uuid
-from datetime import datetime
+import asyncio
+from datetime import datetime, timezone
 from typing import Optional
 from app.database import SessionLocal, SessionRecord
 from app.config import settings
@@ -9,9 +10,13 @@ from app.config import settings
 class SessionManager:
     """
     Production-grade SQLite-based session storage using SQLAlchemy ORM.
+    Uses asyncio.to_thread to prevent blocking the FastAPI event loop.
     """
 
-    def create_session(self, resume_id: str, candidate_name: str, role: str, interview_plan: dict) -> dict:
+    async def create_session(self, resume_id: str, candidate_name: str, role: str, interview_plan: dict) -> dict:
+        return await asyncio.to_thread(self._create_session_sync, resume_id, candidate_name, role, interview_plan)
+
+    def _create_session_sync(self, resume_id: str, candidate_name: str, role: str, interview_plan: dict) -> dict:
         interview_id = str(uuid.uuid4())
         session = {
             "interview_id": interview_id,
@@ -35,30 +40,39 @@ class SessionManager:
                 "total_planned": interview_plan.get("estimated_questions", 6),
             },
             "interview_plan": interview_plan,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         self._save(interview_id, session)
         return session
 
-    def get_session(self, interview_id: str) -> Optional[dict]:
+    async def get_session(self, interview_id: str) -> Optional[dict]:
+        return await asyncio.to_thread(self._get_session_sync, interview_id)
+
+    def _get_session_sync(self, interview_id: str) -> Optional[dict]:
         with SessionLocal() as db:
             record = db.query(SessionRecord).filter(SessionRecord.interview_id == interview_id).first()
             if record:
                 return json.loads(record.data)
         return None
 
-    def update_session(self, interview_id: str, updates: dict) -> dict:
-        session = self.get_session(interview_id)
+    async def update_session(self, interview_id: str, updates: dict) -> dict:
+        return await asyncio.to_thread(self._update_session_sync, interview_id, updates)
+
+    def _update_session_sync(self, interview_id: str, updates: dict) -> dict:
+        session = self._get_session_sync(interview_id)
         if not session:
             raise ValueError(f"Session {interview_id} not found")
         session.update(updates)
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
         self._save(interview_id, session)
         return session
 
-    def add_question(self, interview_id: str, question: str, topic: str) -> dict:
-        session = self.get_session(interview_id)
+    async def add_question(self, interview_id: str, question: str, topic: str) -> dict:
+        return await asyncio.to_thread(self._add_question_sync, interview_id, question, topic)
+
+    def _add_question_sync(self, interview_id: str, question: str, topic: str) -> dict:
+        session = self._get_session_sync(interview_id)
         if not session:
             raise ValueError(f"Session {interview_id} not found")
         
@@ -67,14 +81,17 @@ class SessionManager:
             "question": question,
             "answer": "",
             "topic": topic,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
         self._save(interview_id, session)
         return session
 
-    def add_pending_question(self, interview_id: str, question: str, topic: str) -> dict:
-        session = self.get_session(interview_id)
+    async def add_pending_question(self, interview_id: str, question: str, topic: str) -> dict:
+        return await asyncio.to_thread(self._add_pending_question_sync, interview_id, question, topic)
+
+    def _add_pending_question_sync(self, interview_id: str, question: str, topic: str) -> dict:
+        session = self._get_session_sync(interview_id)
         if not session:
             raise ValueError(f"Session {interview_id} not found")
         
@@ -87,17 +104,15 @@ class SessionManager:
             "timestamp": None,
         })
         session["current_question_index"] = index
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
         self._save(interview_id, session)
         return session
 
-    def add_question_answer(
-        self,
-        interview_id: str,
-        answer: str,
-        evaluation: dict,
-    ) -> dict:
-        session = self.get_session(interview_id)
+    async def add_question_answer(self, interview_id: str, answer: str, evaluation: dict) -> dict:
+        return await asyncio.to_thread(self._add_question_answer_sync, interview_id, answer, evaluation)
+
+    def _add_question_answer_sync(self, interview_id: str, answer: str, evaluation: dict) -> dict:
+        session = self._get_session_sync(interview_id)
         if not session:
             raise ValueError(f"Session {interview_id} not found")
 
@@ -110,12 +125,8 @@ class SessionManager:
         else:
             target_q = session["questions"][-1]
 
-        if target_q.get("answer") is None:
-            target_q["answer"] = answer
-            target_q["timestamp"] = datetime.utcnow().isoformat()
-        else:
-            target_q["answer"] = answer
-            target_q["timestamp"] = datetime.utcnow().isoformat()
+        target_q["answer"] = answer
+        target_q["timestamp"] = datetime.now(timezone.utc).isoformat()
         
         session["evaluations"].append(evaluation)
 
@@ -141,24 +152,22 @@ class SessionManager:
             ctx["current_difficulty"] = "easy" if ctx["current_difficulty"] == "medium" else "medium"
 
         ctx["last_question"] = target_q.get("question", "")
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
         self._save(interview_id, session)
         return session
 
-    def record_answer(
-        self,
-        interview_id: str,
-        answer: str,
-        evaluation: dict,
-    ) -> dict:
-        return self.add_question_answer(interview_id, answer, evaluation)
+    async def record_answer(self, interview_id: str, answer: str, evaluation: dict) -> dict:
+        return await self.add_question_answer(interview_id, answer, evaluation)
 
-    def close_session(self, interview_id: str) -> dict:
-        session = self.get_session(interview_id)
+    async def close_session(self, interview_id: str) -> dict:
+        return await asyncio.to_thread(self._close_session_sync, interview_id)
+
+    def _close_session_sync(self, interview_id: str) -> dict:
+        session = self._get_session_sync(interview_id)
         if not session:
             raise ValueError(f"Session {interview_id} not found")
         session["status"] = "completed"
-        session["updated_at"] = datetime.utcnow().isoformat()
+        session["updated_at"] = datetime.now(timezone.utc).isoformat()
         self._save(interview_id, session)
         return session
 
@@ -171,6 +180,5 @@ class SessionManager:
                 record = SessionRecord(interview_id=interview_id, data=json.dumps(session))
                 db.add(record)
             db.commit()
-
 
 session_manager = SessionManager()
