@@ -26,14 +26,18 @@ export default function UploadPage() {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error("Upload failed");
+      
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Upload failed");
+      }
       
       // Store in session storage for the setup page to pick up
       sessionStorage.setItem("resume_text", data.text);
       router.push("/setup");
-    } catch {
-      setError("Error processing resume. Please try again.");
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Error processing resume. Please try again.";
+      setError(errMsg);
     } finally {
       setIsUploading(false);
     }
