@@ -1,24 +1,28 @@
-interviewai-frontend/node_modules/
-interviewai-backend/venv/
-interviewai-backend/sessions/*.db
-interviewai-backend/.env
-
-# Ignore all markdown files except README
-*.md
-!README.md
+# Secrets
+.env
+.env.local
+*.env
+*.env.*
 
 # Python
+venv/
+.venv/
+env/
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
 .pytest_cache/
-.mypy_cache/
+.coverage
+htmlcov/
 
-# Next.js
-interviewai-frontend/.next/
-interviewai-frontend/out/
-interviewai-frontend/build/
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
 
-# Audio/Uploads
-interviewai-backend/uploads/
-interviewai-backend/reports/
+# OS/System
+.DS_Store
+Thumbs.db

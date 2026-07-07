@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+motor
+groq
+edge-tts
+pypdf
+python-multipart
+google-generativeai
+httpx
