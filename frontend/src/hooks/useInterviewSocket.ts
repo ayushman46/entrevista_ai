@@ -100,8 +100,8 @@ export function useInterviewSocket(sessionId: string) {
     if (!sessionId) return;
     
     // Default to localhost:8000 for local dev
-    // Use NEXT_PUBLIC_WS_URL or fallback to localhost
-    const wsBase = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    // Use NEXT_PUBLIC_WS_URL or fallback to 127.0.0.1 loopback
+    const wsBase = process.env.NEXT_PUBLIC_WS_URL || "ws://127.0.0.1:8000";
     const wsUrl = `${wsBase}/ws/interview/${sessionId}`;
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;

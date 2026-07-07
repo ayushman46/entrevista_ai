@@ -18,7 +18,7 @@ export default function ReportPage() {
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
         const res = await fetch(`${apiBase}/api/report/${sessionId}`);
         const data = await res.json();
         setReport(data);
