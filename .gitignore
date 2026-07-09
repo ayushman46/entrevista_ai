@@ -26,3 +26,6 @@ dist/
 # OS/System
 .DS_Store
 Thumbs.db
+
+# Explanations
+codebase_rag/
