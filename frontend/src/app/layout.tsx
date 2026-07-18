@@ -7,8 +7,8 @@ const ebGaramond = EB_Garamond({ subsets: ["latin"], variable: "--font-eb-garamo
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree" });
 
 export const metadata: Metadata = {
-  title: "InterviewAI v2",
-  description: "Low-latency voice mock interviews.",
+  title: "InterviewAI - AI Mock Interview Platform",
+  description: "Low latency voice mock interviews built for students.",
 };
 
 export default function RootLayout({
