@@ -35,13 +35,13 @@ The audio loop on the client operates as follows:
 
 The backend server is located in the backend directory and is built using FastAPI.
 
-### Core Stack
+### Core Stack -
 
 * FastAPI for asynchronous WebSocket communication.
 * Motor for asynchronous MongoDB operations.
 * PyPDF for reading PDF resume content.
 
-### Server Processing Loop
+### Server Processing Loop -
 
 When a user speaks, the server handles the data through the following steps:
 
