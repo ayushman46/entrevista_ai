@@ -35,8 +35,8 @@ def test_upload_resume_invalid_format():
         "/api/resume/upload",
         files={"file": ("resume.txt", b"plain text content", "text/plain")}
     )
-    assert response.status_code == 200
-    assert response.json() == {"error": "Only PDF allowed"}
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Only PDF allowed"}
 
 
 # 2. Start session routes
@@ -110,16 +110,23 @@ def test_get_report_no_transcripts(mock_get_transcripts, mock_get_evaluation):
 
 @patch("app.api.report.get_evaluation", new_callable=AsyncMock)
 @patch("app.api.report.get_transcripts", new_callable=AsyncMock)
+@patch("app.api.report.get_session", new_callable=AsyncMock)
 @patch("app.api.report.save_evaluation", new_callable=AsyncMock)
-def test_get_report_generated_success(mock_save_evaluation, mock_get_transcripts, mock_get_evaluation):
+def test_get_report_generated_success(mock_save_evaluation, mock_get_session, mock_get_transcripts, mock_get_evaluation):
     mock_get_evaluation.return_value = None
+    mock_get_session.return_value = {
+        "candidate_name": "Jane Doe",
+        "target_role": "QA Automation Engineer",
+        "resume_text": "Experienced QA professional",
+        "job_description": "Build reliable automation systems",
+    }
     mock_get_transcripts.return_value = [
         {"role": "ai", "content": "Tell me about yourself."},
         {"role": "user", "content": "I am a QA engineer."}
     ]
     
     # Mock llm generate function
-    async def mock_generate(messages):
+    async def mock_generate(messages, **kwargs):
         yield '{"score": 88, '
         yield '"strengths": ["Fast communication"], '
         yield '"improvements": ["None"]}'
@@ -135,14 +142,21 @@ def test_get_report_generated_success(mock_save_evaluation, mock_get_transcripts
 
 @patch("app.api.report.get_evaluation", new_callable=AsyncMock)
 @patch("app.api.report.get_transcripts", new_callable=AsyncMock)
-def test_get_report_parsing_failure(mock_get_transcripts, mock_get_evaluation):
+@patch("app.api.report.get_session", new_callable=AsyncMock)
+def test_get_report_parsing_failure(mock_get_session, mock_get_transcripts, mock_get_evaluation):
     mock_get_evaluation.return_value = None
+    mock_get_session.return_value = {
+        "candidate_name": "Jane Doe",
+        "target_role": "QA Automation Engineer",
+        "resume_text": "Experienced QA professional",
+        "job_description": "Build reliable automation systems",
+    }
     mock_get_transcripts.return_value = [
         {"role": "ai", "content": "Tell me about yourself."},
         {"role": "user", "content": "I am a QA engineer."}
     ]
     
-    async def mock_generate_broken(messages):
+    async def mock_generate_broken(messages, **kwargs):
         yield 'invalid json format'
         
     with patch("app.api.report.generate", side_effect=mock_generate_broken):

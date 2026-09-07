@@ -25,7 +25,12 @@ async def test_create_session(mock_db):
     mock_insert_result.inserted_id = ObjectId("60b9f150e21a2c3f88f12345")
     mock_db.sessions.insert_one = AsyncMock(return_value=mock_insert_result)
 
-    session_data = SessionCreate(name="John Doe", role="Software Engineer", resume_text="Resume info")
+    session_data = SessionCreate(
+        name="John Doe",
+        role="Software Engineer",
+        resume_text="Resume info",
+        job_description="Build software",
+    )
     
     session_id = await create_session(session_data)
     
@@ -35,6 +40,7 @@ async def test_create_session(mock_db):
     assert called_arg["candidate_name"] == "John Doe"
     assert called_arg["target_role"] == "Software Engineer"
     assert called_arg["resume_text"] == "Resume info"
+    assert called_arg["job_description"] == "Build software"
     assert called_arg["status"] == "active"
     assert "created_at" in called_arg
 

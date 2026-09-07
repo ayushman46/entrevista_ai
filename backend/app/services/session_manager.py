@@ -10,7 +10,25 @@ async def create_session(session_data: SessionCreate) -> str:
         "candidate_name": session_data.name,
         "target_role": session_data.role,
         "resume_text": session_data.resume_text,
+        "job_description": session_data.job_description,
         "status": "active",
+        "interview_state": {
+            "phase": "opening",
+            "question_number": 0,
+            "questions_asked": [],
+            "topics_covered": [],
+            "competencies_assessed": [],
+            "current_difficulty": 1,
+            "current_topic": None,
+        },
+        "interview_memory": {
+            "important_claims": [],
+            "strong_areas": [],
+            "weak_areas": [],
+            "unverified_claims": [],
+            "topics_to_probe": [],
+            "answer_evidence": [],
+        },
         "created_at": datetime.now(timezone.utc)
     }
     result = await mongo.db.sessions.insert_one(session_doc)
@@ -47,3 +65,11 @@ async def save_evaluation(session_id: str, eval_data: dict):
     
 async def get_evaluation(session_id: str) -> dict:
     return await mongo.db.evaluations.find_one({"session_id": session_id})
+
+
+async def save_interview_context(session_id: str, state: dict, memory: dict):
+    """Persist the compact state that drives adaptive questions and scoring."""
+    await mongo.db.sessions.update_one(
+        {"_id": ObjectId(session_id)},
+        {"$set": {"interview_state": state, "interview_memory": memory}},
+    )

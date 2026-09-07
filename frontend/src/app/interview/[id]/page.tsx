@@ -12,13 +12,18 @@ export default function InterviewRoom() {
   const router = useRouter();
   const sessionId = params.id as string;
   const { sendAudio } = useInterviewSocket(sessionId);
-  const { connectionStatus, isAiSpeaking, setIsRecording } = useInterviewStore();
+  const {
+    connectionStatus,
+    isAiSpeaking,
+    isAiThinking,
+    setIsRecording,
+  } = useInterviewStore();
   const [micActive, setMicActive] = useState(false);
 
   const vad = useVAD((audio) => {
     // Send audio buffer to backend when speech ends
     sendAudio(audio);
-  });
+  }, isAiSpeaking || isAiThinking);
 
   useEffect(() => {
     setMicActive(vad.userSpeaking);

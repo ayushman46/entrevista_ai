@@ -9,10 +9,12 @@ interface InterviewState {
   transcript: TranscriptMessage[];
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   isAiSpeaking: boolean;
+  isAiThinking: boolean;
   isRecording: boolean;
   addTranscriptChunk: (role: 'user' | 'ai', chunk: string, isFinal?: boolean) => void;
   setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'error') => void;
   setIsAiSpeaking: (speaking: boolean) => void;
+  setIsAiThinking: (thinking: boolean) => void;
   setIsRecording: (recording: boolean) => void;
 }
 
@@ -20,6 +22,7 @@ export const useInterviewStore = create<InterviewState>((set) => ({
   transcript: [],
   connectionStatus: 'disconnected',
   isAiSpeaking: false,
+  isAiThinking: false,
   isRecording: false,
   addTranscriptChunk: (role, chunk) => set((state) => {
     const newTranscript = [...state.transcript];
@@ -38,5 +41,6 @@ export const useInterviewStore = create<InterviewState>((set) => ({
   }),
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   setIsAiSpeaking: (speaking) => set({ isAiSpeaking: speaking }),
+  setIsAiThinking: (thinking) => set({ isAiThinking: thinking }),
   setIsRecording: (recording) => set({ isRecording: recording }),
 }));

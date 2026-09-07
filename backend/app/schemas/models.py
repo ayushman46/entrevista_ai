@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -6,6 +6,7 @@ class SessionCreate(BaseModel):
     name: str
     role: str
     resume_text: str = ""
+    job_description: str = ""
 
 class SessionResponse(BaseModel):
     session_id: str
@@ -21,3 +22,5 @@ class ReportResponse(BaseModel):
     score: int
     strengths: List[str]
     improvements: List[str]
+    competency_scores: List[dict] = Field(default_factory=list)
+    evidence: List[dict] = Field(default_factory=list)

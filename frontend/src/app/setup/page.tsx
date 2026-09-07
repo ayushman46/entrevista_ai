@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 export default function SetupPage() {
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [resumeText, setResumeText] = useState("");
   const router = useRouter();
@@ -26,7 +27,12 @@ export default function SetupPage() {
       const res = await fetch(`${apiBase}/api/interview/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, role, resume_text: resumeText }),
+        body: JSON.stringify({
+          name,
+          role,
+          resume_text: resumeText,
+          job_description: jobDescription,
+        }),
       });
       const data = await res.json();
       if (data.session_id) {
@@ -75,6 +81,18 @@ export default function SetupPage() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full bg-cream border-2 border-vast rounded-xl px-4 py-3 outline-none focus:bg-white transition-colors"
               placeholder="Senior Frontend Engineer"
+            />
+          </div>
+          <div>
+            <label htmlFor="job-description" className="block font-semibold mb-2">
+              Job Description <span className="font-normal opacity-60">(optional)</span>
+            </label>
+            <textarea
+              id="job-description"
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              className="min-h-32 w-full resize-y rounded-xl border-2 border-vast bg-cream px-4 py-3 outline-none transition-colors focus:bg-white"
+              placeholder="Paste the role responsibilities and requirements for more targeted questions."
             />
           </div>
           <div className="pt-4 flex gap-4">

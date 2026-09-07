@@ -37,7 +37,12 @@ function encodeWAV(samples: Float32Array, sampleRate: number = 16000): Blob {
 
 export function useInterviewSocket(sessionId: string) {
   const socketRef = useRef<WebSocket | null>(null);
-  const { setConnectionStatus, addTranscriptChunk, setIsAiSpeaking } = useInterviewStore();
+  const {
+    setConnectionStatus,
+    addTranscriptChunk,
+    setIsAiSpeaking,
+    setIsAiThinking,
+  } = useInterviewStore();
   const audioQueue = useRef<{seq: number, buffer: ArrayBuffer}[]>([]);
   const isPlaying = useRef(false);
   const currentExpectedSeq = useRef(1);
@@ -112,31 +117,38 @@ export function useInterviewSocket(sessionId: string) {
     
     ws.onclose = () => {
       setConnectionStatus('disconnected');
+      setIsAiThinking(false);
+      setIsAiSpeaking(false);
     };
     
     ws.onerror = () => {
       setConnectionStatus('error');
     };
     
-    let pendingChunkMeta: { seq: number, text: string } | null = null;
+    const pendingChunkMeta = { current: [] as { seq: number, text: string }[] };
     
     ws.onmessage = async (event) => {
       if (typeof event.data === 'string') {
         const data = JSON.parse(event.data);
-        if (data.type === 'audio_chunk') {
-          pendingChunkMeta = data;
+        if (data.type === 'ai_turn_start') {
+          setIsAiThinking(true);
+        } else if (data.type === 'audio_chunk') {
+          pendingChunkMeta.current.push(data);
+        } else if (data.type === 'audio_chunk_error') {
+          audioQueue.current.push({ seq: data.seq, buffer: new ArrayBuffer(0) });
+          playNextInQueue();
         } else if (data.type === 'transcript_chunk') {
           addTranscriptChunk('ai', data.content);
         } else if (data.type === 'transcript') {
           addTranscriptChunk('user', data.content, true);
         } else if (data.type === 'ai_turn_complete') {
-          currentExpectedSeq.current = 1; // reset for next turn
+          setIsAiThinking(false);
         }
       } else if (event.data instanceof Blob) {
-        if (pendingChunkMeta) {
+        const meta = pendingChunkMeta.current.shift();
+        if (meta) {
           const buffer = await event.data.arrayBuffer();
-          audioQueue.current.push({ seq: pendingChunkMeta.seq, buffer });
-          pendingChunkMeta = null;
+          audioQueue.current.push({ seq: meta.seq, buffer });
           playNextInQueue();
         }
       }

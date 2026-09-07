@@ -1,78 +1,148 @@
-# InterviewAI Project Documentation and System Architecture
+# InterviewAI
 
-This document describes the system architecture, component design, data flow, and deployment setup for the InterviewAI voice practice platform.
+InterviewAI is a voice-first practice interview platform. A candidate uploads a resume, optionally adds a job description, chooses a target role, and completes an adaptive interview with a generated report.
 
-## Overview
+## Architecture
 
-InterviewAI is a low latency voice AI practice interview platform. The system operates on a client server model:
+The project has two applications:
 
-* The frontend client captures browser microphone input, processes voice activity detection, and manages the user interface.
-* The backend server coordinates audio transcription, LLM reasoning, speech synthesis, and database management.
+- `frontend`: Next.js 14 client with local Silero VAD, WebSocket audio transport, transcript UI, and report screens.
+- `backend`: FastAPI service that coordinates transcription, NVIDIA language generation, speech synthesis, MongoDB persistence, adaptive state, and reports.
 
-To achieve low latency conversational response times under two seconds, the client and server maintain a persistent bidirectional WebSocket connection.
+## Live Interview Pipeline
 
-## Client Architecture
+The live path is optimized for fast time-to-first-response while preserving ordered audio:
 
-The frontend client is located in the frontend directory and is built using Next.js 14.
+1. Silero VAD runs in the browser and detects the end of a candidate utterance.
+2. The browser encodes the captured audio as 16 kHz mono PCM WAV and sends it over the persistent interview WebSocket.
+3. Groq Whisper `whisper-large-v3-turbo` transcribes the completed utterance. Groq is used for speech-to-text only.
+4. The backend persists the candidate transcript and builds a bounded live prompt from the candidate, resume, job description, interview state, memory, and recent conversation.
+5. NVIDIA `nvidia/nemotron-3.5-lightning-30b-a3b` streams the interviewer response with live reasoning disabled.
+6. Each completed sentence is sent to the browser immediately and synthesized concurrently with the other sentences.
+7. The browser queues audio by a monotonic sequence number, so out-of-order TTS completion cannot reorder playback.
+8. Candidate answer analysis is delayed until an idle window and canceled when a new utterance arrives. It never competes with the critical live response.
 
-### Core Stack
+The pipeline is low-latency, not literally zero-latency: the current Whisper endpoint receives a completed utterance rather than a continuous audio stream, and TTS must still synthesize the first sentence. True sub-second full-duplex interaction would require a streaming ASR/TTS transport or NVIDIA Nemotron VoiceChat early access.
 
-* Next.js 14 App Router for page routing and server rendering.
-* Zustand for client side state tracking including active transcripts and connection status.
-* Tailwind CSS for UI layouts and themes.
+## Provider Boundary
 
-### Client Audio Loop
+Language generation uses NVIDIA exclusively through its OpenAI-compatible API Catalog endpoint:
 
-The audio loop on the client operates as follows:
+- Live interviewer turns: `nvidia/nemotron-3.5-lightning-30b-a3b` for speed.
+- Answer analysis and final reports: `nvidia/nemotron-3-super-120b-a12b` for deeper reasoning.
+- NVIDIA reasoning output is never sent to the candidate or spoken by TTS.
+- Groq is limited to Whisper speech transcription in `backend/app/services/stt_service.py`.
+- Microsoft Edge TTS is used for spoken playback.
 
-1. Microphone capture streams raw audio to the browser.
-2. Voice Activity Detection runs Silero VAD directly in the browser via WebAssembly to detect when a user starts and stops speaking.
-3. The raw float samples are encoded into 16 bit PCM mono WAV bytes at a 16kHz sample rate.
-4. The client WebSocket sends the WAV bytes to the backend.
-5. Incoming audio chunks from the backend are queued and played sequentially using the browser Web Audio API.
+NVIDIA free endpoints and Groq free access are quota-limited trial/development services. They are not unlimited production capacity. Check each provider's current limits before deployment.
 
-## Server Architecture
+## Local Setup
 
-The backend server is located in the backend directory and is built using FastAPI.
+### Backend
 
-### Core Stack -
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
 
-* FastAPI for asynchronous WebSocket communication.
-* Motor for asynchronous MongoDB operations.
-* PyPDF for reading PDF resume content.
+Configure these values in `backend/.env`:
 
-### Server Processing Loop -
+```env
+MONGODB_URI="mongodb+srv://<user>:<password>@<cluster>/<database>"
+MONGODB_DB_NAME="interviewai"
+GROQ_API_KEY="your_groq_key"
+NVIDIA_API_KEY="your_nvidia_api_catalog_key"
+CORS_ORIGINS="http://localhost:3000"
+```
 
-When a user speaks, the server handles the data through the following steps:
+Optional NVIDIA performance settings:
 
-1. Speech to Text: The backend receives raw WAV bytes and sends them to the Groq Whisper API for transcription.
-2. LLM Sentence Generator: The transcribed text is added to the session history. The server queries an LLM fallback chain starting with Groq, falling back to DeepSeek, and finally Gemini.
-3. Sentence Splitter: The server parses the streaming text using regular expressions and yields complete sentences immediately.
-4. Text to Speech: As soon as a sentence is ready, it is sent to Microsoft Edge TTS to generate audio bytes.
-5. WebSocket Stream: The server pushes the audio bytes back to the browser.
+```env
+NVIDIA_REALTIME_MODEL="nvidia/nemotron-3.5-lightning-30b-a3b"
+NVIDIA_ANALYSIS_MODEL="nvidia/nemotron-3-super-120b-a12b"
+NVIDIA_REALTIME_THINKING="false"
+NVIDIA_ANALYSIS_THINKING="true"
+NVIDIA_REALTIME_TIMEOUT="15"
+NVIDIA_ANALYSIS_TIMEOUT="45"
+```
 
-## Database Design
+### Frontend
 
-The system uses MongoDB to store configurations, session history, and evaluations.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-* Sessions: Stores candidate information, target role, and resume text.
-* Transcripts: Stores chronological dialogue exchanges between user and assistant.
-* Evaluations: Stores feedback reports including scores, strengths, and improvements.
+The frontend defaults to `http://127.0.0.1:8000` for the REST API and `ws://127.0.0.1:8000` for WebSockets. Set these when using a deployed backend:
 
-## Development and Deployment Setup
+```env
+NEXT_PUBLIC_API_URL="https://your-backend.example.com"
+NEXT_PUBLIC_WS_URL="wss://your-backend.example.com"
+```
 
-For production, the client is deployed on Vercel and the backend is deployed on Render.
+## Routes
 
-### Environmental Variables
+- `/`: landing page and direct interview CTA.
+- `/upload`: optional PDF resume upload and text extraction.
+- `/setup`: candidate name, target role, and optional job description.
+- `/interview/[id]`: live voice interview.
+- `/report/[id]`: evidence-based interview report.
 
-* NEXT_PUBLIC_API_URL: The HTTPS endpoint of the backend server.
-* NEXT_PUBLIC_WS_URL: The secure WebSocket endpoint of the backend server.
-* MONGODB_URI: The connection URI for the database.
-* GROQ_API_KEY: The primary token for transcription and LLM inference.
-* DEEPSEEK_API_KEY: The fallback token for LLM inference.
-* GEMINI_API_KEY: The final fallback token for LLM inference.
-* CORS_ORIGINS: Permitted frontend origins.
+Backend endpoints:
 
-### Security Configurations
+- `POST /api/resume/upload`
+- `POST /api/interview/start`
+- `GET /api/interview/{session_id}`
+- `GET /api/report/{session_id}`
+- `WS /ws/interview/{session_id}`
 
-The backend CORS policy is configured with regular expressions to permit dynamic Vercel subdomains and localhost ports. The database setup requires whitelisting access from Render servers in the MongoDB Network Access panel.
+## Latency Guardrails
+
+The implementation avoids common live-path bottlenecks:
+
+- NVIDIA HTTP clients are reused so every turn does not establish a new connection.
+- Live prompts clip large resume and job-description payloads and keep only recent conversation context.
+- Live generation uses streaming and disables reasoning.
+- TTS starts at the first sentence rather than waiting for the full answer.
+- Analysis is deferred and cancelable.
+- Live turns are serialized to prevent overlapping model requests and corrupted audio ordering.
+- Audio sequence numbers never reset during a WebSocket session.
+- VAD does not upload new utterances while the interviewer is thinking or speaking.
+
+The first browser visit can still spend time downloading the local VAD/WebAssembly assets. That cost is paid at startup, not on each answer.
+
+## Verification
+
+Run backend tests:
+
+```bash
+cd backend
+./venv/bin/pytest -q
+```
+
+Run frontend checks:
+
+```bash
+cd frontend
+npx tsc --noEmit
+npm run build
+```
+
+The test suite covers API routes, session persistence, context bounding, provider selection, NVIDIA request construction, Whisper behavior, TTS behavior, sentence streaming, ordered live audio sequencing, and cancellation of background analysis.
+
+## Deployment
+
+The frontend can be deployed to Vercel and the backend to Render or another ASGI host. The backend host must provide:
+
+- Python 3.12-compatible runtime.
+- MongoDB network access.
+- NVIDIA and Groq environment variables.
+- WebSocket support.
+- CORS configured for the deployed frontend origin.
+
+Never commit `.env` files or provider keys. Rotate any key that has been exposed outside the intended secret store.

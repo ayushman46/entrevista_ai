@@ -5,13 +5,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.mongo import init_db, close_db
 from app.api import websocket, resume, interview, report
+from app.services.llm_chain import close_nvidia_clients
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    yield
-    await close_db()
+    try:
+        yield
+    finally:
+        await close_nvidia_clients()
+        await close_db()
 
 app = FastAPI(lifespan=lifespan)
 

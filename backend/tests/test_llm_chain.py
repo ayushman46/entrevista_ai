@@ -1,97 +1,96 @@
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 import os
-import re
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.llm_chain import (
-    SENTENCE_END,
-    generate,
-    generate_sentences
-)
+import pytest
 
-# Test sentence splitter regex
+from app.services.llm_chain import SENTENCE_END, _nvidia_generate, generate, generate_sentences
+
+
 def test_sentence_end_regex():
     text = "Hello! How are you?\nFine. Good day."
-    # Find all matches using SENTENCE_END
-    matches = [m.group(0) for m in SENTENCE_END.finditer(text)]
-    assert any("!" in m for m in matches)
-    assert any("?" in m for m in matches)
-    assert any("\n" in m for m in matches)
-    assert any("." in m for m in matches)
+    matches = [match.group(0) for match in SENTENCE_END.finditer(text)]
+    assert any("!" in match for match in matches)
+    assert any("?" in match for match in matches)
+    assert any("\n" in match for match in matches)
+    assert any("." in match for match in matches)
+
 
 @pytest.mark.asyncio
-async def test_generate_no_keys():
-    # Test with no API keys configured
+async def test_generate_requires_nvidia_key():
     with patch.dict(os.environ, {}, clear=True):
-        res = []
-        async for chunk in generate([{"role": "user", "content": "hi"}]):
-            res.append(chunk)
-        assert len(res) == 1
-        assert "Error: No LLM API keys configured." in res[0]
+        result = [
+            chunk async for chunk in generate([{"role": "user", "content": "hi"}])
+        ]
+
+    assert result == ["Error: NVIDIA_API_KEY is not configured."]
+
 
 @pytest.mark.asyncio
-async def test_generate_fallback_success():
-    # Setup: GROQ_API_KEY and DEEPSEEK_API_KEY are configured.
-    # Groq fails immediately, Deepseek succeeds.
-    async def mock_groq(messages):
-        if False: yield # make it an async generator
-        raise Exception("Groq failed")
-        
-    async def mock_deepseek(messages):
-        yield "Deep"
-        yield "seek"
-        yield " success"
+async def test_generate_uses_only_nvidia_when_configured():
+    async def mock_nvidia(messages, purpose):
+        assert messages == [{"role": "user", "content": "hi"}]
+        assert purpose == "analysis"
+        yield "NVIDIA success"
 
-    with patch.dict(os.environ, {"GROQ_API_KEY": "gkey", "DEEPSEEK_API_KEY": "dkey"}):
-        with patch("app.services.llm_chain._groq_generate", side_effect=mock_groq) as mock_g, \
-             patch("app.services.llm_chain._deepseek_generate", side_effect=mock_deepseek) as mock_d:
-            mock_g.__name__ = "_groq_generate"
-            mock_d.__name__ = "_deepseek_generate"
-            res = []
-            async for chunk in generate([{"role": "user", "content": "hi"}]):
-                res.append(chunk)
-            assert "".join(res) == "Deepseek success"
+    with patch.dict(os.environ, {"NVIDIA_API_KEY": "nkey"}, clear=True):
+        with patch("app.services.llm_chain._nvidia_generate", side_effect=mock_nvidia):
+            result = [
+                chunk
+                async for chunk in generate(
+                    [{"role": "user", "content": "hi"}], purpose="analysis"
+                )
+            ]
+
+    assert result == ["NVIDIA success"]
+
 
 @pytest.mark.asyncio
-async def test_generate_mid_stream_failure():
-    # Setup: GROQ_API_KEY and DEEPSEEK_API_KEY are configured.
-    # Groq yields some contents and then fails mid-stream.
-    # Deepseek should NOT be called.
-    async def mock_groq(messages):
-        yield "Groq"
-        yield " partial"
-        raise Exception("Groq mid-stream crash")
+async def test_nvidia_request_uses_analysis_model_and_reasoning():
+    async def mock_stream():
+        yield SimpleNamespace(
+            choices=[SimpleNamespace(delta=SimpleNamespace(content="analysis"))]
+        )
 
-    mock_deepseek = AsyncMock()
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=mock_stream())
+    client.close = AsyncMock()
 
-    with patch.dict(os.environ, {"GROQ_API_KEY": "gkey", "DEEPSEEK_API_KEY": "dkey"}):
-        with patch("app.services.llm_chain._groq_generate", side_effect=mock_groq) as mock_g, \
-             patch("app.services.llm_chain._deepseek_generate", mock_deepseek) as mock_d:
-            mock_g.__name__ = "_groq_generate"
-            mock_d.__name__ = "_deepseek_generate"
-            res = []
-            async for chunk in generate([{"role": "user", "content": "hi"}]):
-                res.append(chunk)
-            assert "".join(res) == "Groq partial"
-            mock_deepseek.assert_not_called()
+    with patch.dict(os.environ, {"NVIDIA_API_KEY": "nkey"}, clear=True):
+        with patch("openai.AsyncOpenAI", return_value=client) as mock_openai:
+            result = [
+                chunk
+                async for chunk in _nvidia_generate(
+                    [{"role": "user", "content": "evaluate this"}],
+                    purpose="analysis",
+                )
+            ]
+
+    request = client.chat.completions.create.call_args.kwargs
+    assert result == ["analysis"]
+    assert request["model"] == "nvidia/nemotron-3-super-120b-a12b"
+    assert request["stream"] is True
+    assert request["extra_body"] == {
+            "chat_template_kwargs": {"enable_thinking": True},
+            "reasoning_budget": 1024,
+        }
+    assert mock_openai.call_args.kwargs["timeout"] == 45.0
+
 
 @pytest.mark.asyncio
 async def test_generate_sentences_splitting():
-    # Test sentence generation split logic
-    async def mock_gen(messages):
+    async def mock_generate(messages):
         yield "Hello! How "
         yield "are you?\n"
         yield "I am fine. Thanks"
 
-    with patch.dict(os.environ, {"GROQ_API_KEY": "gkey"}):
-        with patch("app.services.llm_chain.generate", side_effect=mock_gen):
-            sentences = []
-            async for s in generate_sentences([{"role": "user", "content": "hi"}]):
-                sentences.append(s)
-            
-            assert sentences == [
-                "Hello!",
-                "How are you?",
-                "I am fine.",
-                "Thanks"
+    with patch.dict(os.environ, {"NVIDIA_API_KEY": "nkey"}):
+        with patch("app.services.llm_chain.generate", side_effect=mock_generate):
+            sentences = [
+                sentence
+                async for sentence in generate_sentences(
+                    [{"role": "user", "content": "hi"}]
+                )
             ]
+
+    assert sentences == ["Hello!", "How are you?", "I am fine.", "Thanks"]

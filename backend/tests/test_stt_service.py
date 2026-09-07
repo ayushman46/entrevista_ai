@@ -21,7 +21,9 @@ async def test_transcribe_audio_success():
             mock_client.audio.transcriptions.create.assert_called_once_with(
                 file=("audio.wav", b"some audio bytes"),
                 model="whisper-large-v3-turbo",
-                response_format="text"
+                response_format="text",
+                language="en",
+                temperature=0.0,
             )
 
 @pytest.mark.asyncio

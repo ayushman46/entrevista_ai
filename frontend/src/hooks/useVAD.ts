@@ -1,6 +1,18 @@
+import { useEffect, useRef } from 'react';
 import { useMicVAD } from '@ricky0123/vad-react';
 
-export function useVAD(onSpeechEndCallback: (audio: Float32Array) => void) {
+export function useVAD(
+  onSpeechEndCallback: (audio: Float32Array) => void,
+  disabled = false,
+) {
+  const callbackRef = useRef(onSpeechEndCallback);
+  const disabledRef = useRef(disabled);
+
+  useEffect(() => {
+    callbackRef.current = onSpeechEndCallback;
+    disabledRef.current = disabled;
+  }, [disabled, onSpeechEndCallback]);
+
   const vad = useMicVAD({
     startOnLoad: true,
     baseAssetPath: "/",
@@ -10,7 +22,9 @@ export function useVAD(onSpeechEndCallback: (audio: Float32Array) => void) {
       ort.env.wasm.wasmPaths = "/";
     },
     onSpeechEnd: (audio) => {
-      onSpeechEndCallback(audio);
+      if (!disabledRef.current) {
+        callbackRef.current(audio);
+      }
     },
   });
 

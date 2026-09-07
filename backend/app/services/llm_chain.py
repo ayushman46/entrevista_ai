@@ -1,103 +1,132 @@
 import os
 import re
-import asyncio
 from typing import AsyncIterator
-from groq import AsyncGroq
-import httpx
-import google.generativeai as genai
 
 # Sentence splitting pattern
 SENTENCE_END = re.compile(r'([.!?\n]+)')
 
-async def _groq_generate(messages: list) -> AsyncIterator[str]:
-    client = AsyncGroq(api_key=os.environ["GROQ_API_KEY"])
-    response = await client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,
-        stream=True
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+NVIDIA_REALTIME_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b"
+NVIDIA_ANALYSIS_MODEL = "nvidia/nemotron-3-super-120b-a12b"
+_nvidia_clients = {}
+_nvidia_client_configs = {}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+async def _nvidia_generate(messages: list, purpose: str = "realtime") -> AsyncIterator[str]:
+    """Stream from NVIDIA's OpenAI-compatible hosted endpoint without blocking FastAPI."""
+    from openai import AsyncOpenAI
+
+    is_analysis = purpose == "analysis"
+    model = os.environ.get(
+        "NVIDIA_ANALYSIS_MODEL" if is_analysis else "NVIDIA_REALTIME_MODEL",
+        NVIDIA_ANALYSIS_MODEL if is_analysis else NVIDIA_REALTIME_MODEL,
     )
-    async for chunk in response:
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
-
-async def _deepseek_generate(messages: list) -> AsyncIterator[str]:
-    api_key = os.environ["DEEPSEEK_API_KEY"]
-    async with httpx.AsyncClient() as client:
-        req = {
-            "model": "deepseek-chat",
-            "messages": messages,
-            "stream": True
-        }
-        headers = {"Authorization": f"Bearer {api_key}"}
-        async with client.stream("POST", "https://api.deepseek.com/chat/completions", json=req, headers=headers) as response:
-            if response.status_code != 200:
-                raise Exception(f"Deepseek error: {response.status_code}")
-            async for line in response.aiter_lines():
-                if line.startswith("data: ") and line != "data: [DONE]":
-                    import json
-                    data = json.loads(line[6:])
-                    if data["choices"] and data["choices"][0]["delta"].get("content"):
-                        yield data["choices"][0]["delta"]["content"]
-
-async def _gemini_generate(messages: list) -> AsyncIterator[str]:
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    # Convert OpenAI message format to Gemini format
-    gemini_messages = []
-    system_prompt = ""
-    for m in messages:
-        if m["role"] == "system":
-            system_prompt += m["content"] + "\n"
-        elif m["role"] == "user":
-            gemini_messages.append({"role": "user", "parts": [m["content"]]})
-        elif m["role"] == "assistant":
-            gemini_messages.append({"role": "model", "parts": [m["content"]]})
-            
-    model = genai.GenerativeModel("gemini-2.0-flash", system_instruction=system_prompt)
-    response = await asyncio.to_thread(
-        model.generate_content, gemini_messages, stream=True
+    enable_thinking = _env_bool(
+        "NVIDIA_ANALYSIS_THINKING" if is_analysis else "NVIDIA_REALTIME_THINKING",
+        is_analysis,
     )
-    for chunk in response:
-        yield chunk.text
+    base_url = os.environ.get("NVIDIA_BASE_URL", NVIDIA_BASE_URL)
+    api_key = os.environ["NVIDIA_API_KEY"]
+    client_config = (base_url, api_key)
+    client_key = "analysis" if is_analysis else "realtime"
+    global _nvidia_clients, _nvidia_client_configs
+    if (
+        client_key not in _nvidia_clients
+        or _nvidia_client_configs.get(client_key) != client_config
+    ):
+        _nvidia_clients[client_key] = AsyncOpenAI(
+            base_url=base_url,
+            api_key=api_key,
+            max_retries=0,
+            timeout=_env_float(
+                "NVIDIA_ANALYSIS_TIMEOUT" if is_analysis else "NVIDIA_REALTIME_TIMEOUT",
+                45.0 if is_analysis else 15.0,
+            ),
+        )
+        _nvidia_client_configs[client_key] = client_config
+    client = _nvidia_clients[client_key]
 
-async def generate(messages: list) -> AsyncIterator[str]:
-    # Fallback chain: Groq -> DeepSeek -> Gemini
-    generators = []
-    if os.environ.get("GROQ_API_KEY"):
-        generators.append(_groq_generate)
-    if os.environ.get("DEEPSEEK_API_KEY"):
-        generators.append(_deepseek_generate)
-    if os.environ.get("GEMINI_API_KEY"):
-        generators.append(_gemini_generate)
-        
-    if not generators:
-        yield "Error: No LLM API keys configured."
+    request = {
+        "model": model,
+        "messages": messages,
+        "temperature": _env_float(
+            "NVIDIA_ANALYSIS_TEMPERATURE" if is_analysis else "NVIDIA_REALTIME_TEMPERATURE",
+            0.3 if is_analysis else 0.7,
+        ),
+        "top_p": _env_float("NVIDIA_TOP_P", 0.95),
+        "max_tokens": _env_int(
+            "NVIDIA_ANALYSIS_MAX_TOKENS" if is_analysis else "NVIDIA_REALTIME_MAX_TOKENS",
+            2_048 if is_analysis else 512,
+        ),
+        "stream": True,
+        "extra_body": {
+            "chat_template_kwargs": {"enable_thinking": enable_thinking},
+        },
+    }
+    if enable_thinking:
+        request["extra_body"]["reasoning_budget"] = _env_int(
+            "NVIDIA_ANALYSIS_REASONING_BUDGET" if is_analysis else "NVIDIA_REALTIME_REASONING_BUDGET",
+            1_024 if is_analysis else 0,
+        )
+
+    completion = await client.chat.completions.create(**request)
+    async for chunk in completion:
+        if not chunk.choices:
+            continue
+        content = chunk.choices[0].delta.content
+        # Reasoning content is deliberately ignored; only speak/display the final answer.
+        if content:
+            yield content
+
+
+async def close_nvidia_clients() -> None:
+    """Close pooled HTTP clients during application shutdown."""
+    clients = list(_nvidia_clients.values())
+    _nvidia_clients.clear()
+    _nvidia_client_configs.clear()
+    for client in clients:
+        await client.close()
+
+async def generate(messages: list, purpose: str = "realtime") -> AsyncIterator[str]:
+    """Generate exclusively through NVIDIA's hosted API Catalog endpoint."""
+    if not os.environ.get("NVIDIA_API_KEY"):
+        yield "Error: NVIDIA_API_KEY is not configured."
         return
 
-    for i, gen_func in enumerate(generators):
-        try:
-            # We must yield from it
-            # If it fails before yielding the first chunk, we catch it
-            # If it fails mid-stream, we might have partial responses.
-            first = True
-            async for chunk in gen_func(messages):
-                first = False
-                yield chunk
-            # If we successfully completed the stream, break out of fallback chain
-            break
-        except Exception as e:
-            print(f"Provider {gen_func.__name__} failed: {e}")
-            if first:
-                # Try next provider
-                continue
-            else:
-                # We already yielded some chunks, so falling back would repeat text.
-                # Just break.
-                break
+    try:
+        async for chunk in _nvidia_generate(messages, purpose):
+            yield chunk
+    except Exception as exc:
+        print(f"NVIDIA generation failed: {exc}")
+        yield "Error: NVIDIA generation failed."
 
-async def generate_sentences(messages: list) -> AsyncIterator[str]:
+async def generate_sentences(messages: list, purpose: str = "realtime") -> AsyncIterator[str]:
     """Yields complete sentences as they stream from the LLM."""
     buffer = ""
-    async for chunk in generate(messages):
+    # Keep the default call signature compatible with existing provider adapters and tests.
+    stream = generate(messages) if purpose == "realtime" else generate(messages, purpose=purpose)
+    async for chunk in stream:
         buffer += chunk
         # Check if we have sentence terminators in the buffer
         while True:
